@@ -2,10 +2,12 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { ProjectLink } from "@/components/site/project-link";
 import { SiteShell } from "@/components/site/site-shell";
+import { YouTubeEmbed } from "@/components/site/youtube-embed";
+import { YOUTUBE_THUMBNAIL_URL } from "@/lib/project-links";
 import { useHeroTelemetry } from "@/hooks/use-hero-telemetry";
 
-// The home route ships no og:image, so serve-time hosting can inject the
-// project's social preview (explicit og:image or latest screenshot).
+// The home route shows the demo video's cover art, so that image doubles as the
+// page's social preview.
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -23,6 +25,8 @@ export const Route = createFileRoute("/")({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:image", content: YOUTUBE_THUMBNAIL_URL },
+      { name: "twitter:image", content: YOUTUBE_THUMBNAIL_URL },
     ],
   }),
   component: Index,
@@ -459,12 +463,8 @@ function Index() {
             </div>
 
             <div className="panel p-3 sm:p-4 hover:border-cyan/50 transition">
-              <div className="relative w-full aspect-video rounded-xl bg-background border border-border flex flex-col items-center justify-center p-6 text-center overflow-hidden">
-                <div className="w-16 h-16 rounded-full bg-cyan/15 border border-cyan flex items-center justify-center text-cyan text-2xl mb-4 shadow-glow">
-                  ▶
-                </div>
-                <h3 className="text-lg font-bold text-foreground mb-1">Orbital Architect 2D - Working Simulator Demo</h3>
-                <p className="technical text-xs text-muted-foreground mb-4">[INSERT YOUTUBE / VIDEO DEMO EMBED URL]</p>
+              <YouTubeEmbed title="Orbital Architect 2D - Working Simulator Demo" />
+              <div className="flex justify-center pt-4 pb-1">
                 <ProjectLink kind="video" className="btn-secondary px-4 py-2 text-xs">OPEN VIDEO LINK</ProjectLink>
               </div>
               <p className="text-xs text-muted-foreground mt-3 px-1">
