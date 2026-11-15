@@ -3,7 +3,7 @@
  * links with no URL show the "resource placeholder" notice instead of navigating.
  */
 export const PROJECT_LINKS = {
-  github: "",
+  github: "https://github.com/jaynasa/codebase-reimagined",
   video: "",
 } as const;
 

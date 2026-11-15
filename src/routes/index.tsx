@@ -83,9 +83,9 @@ function Index() {
                     <span>WATCH DEMO</span>
                   </Link>
 
-                  <Link to="/" hash="resources" className="btn-secondary px-5 py-3.5 text-sm sm:text-base">
+                  <ProjectLink kind="github" className="btn-secondary px-5 py-3.5 text-sm sm:text-base">
                     <span>VIEW SOURCE CODE</span>
-                  </Link>
+                  </ProjectLink>
                 </div>
 
                 {/* Technical Status Strip */}
