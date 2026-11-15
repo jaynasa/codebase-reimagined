@@ -1,0 +1,61 @@
+{
+  "source": "code-archive (FINAL.zip: WEBSITE FINAL FINAL.html, GAME FINAL.html)",
+  "capabilities": [
+    {
+      "capability": "code: project website (home sections + mission guide)",
+      "source": "WEBSITE FINAL FINAL.html",
+      "outcome": "migrate",
+      "status": "verified",
+      "next_action": "none - / and /guide rebuilt; nav, search, calculator, glossary, TOC, progress, mobile menu browser-checked"
+    },
+    {
+      "capability": "code: rocket simulator game",
+      "source": "GAME FINAL.html",
+      "outcome": "migrate",
+      "status": "verified",
+      "next_action": "none - served at /game/index.html, embedded at /play; screenshot-identical to original with precompiled CSS"
+    },
+    {
+      "capability": "schema/records",
+      "source": "none detected",
+      "outcome": "not_applicable",
+      "status": "verified",
+      "next_action": "none - static site, no database"
+    },
+    {
+      "capability": "auth identities / authorization",
+      "source": "none detected",
+      "outcome": "not_applicable",
+      "status": "verified",
+      "next_action": "none"
+    },
+    {
+      "capability": "external providers / endpoints / webhooks / schedules / secrets",
+      "source": "none detected (only Google Fonts + Tailwind CDN)",
+      "outcome": "not_applicable",
+      "status": "verified",
+      "next_action": "none"
+    },
+    {
+      "capability": "browser storage",
+      "source": "sessionStorage oa_guide_progress (write-only)",
+      "outcome": "migrate",
+      "status": "verified",
+      "next_action": "none"
+    },
+    {
+      "capability": "external links: GitHub repo + demo video",
+      "source": "[INSERT_GITHUB_URL], [INSERT_VIDEO_URL] placeholders",
+      "outcome": "migrate",
+      "status": "pending_user",
+      "next_action": "Ask user for real URLs; placeholder toast preserved meanwhile"
+    },
+    {
+      "capability": "verification",
+      "source": "-",
+      "outcome": "verify",
+      "status": "verified",
+      "next_action": "none - typecheck, tests and browser checks passed"
+    }
+  ]
+}

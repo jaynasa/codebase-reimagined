@@ -1,0 +1,4001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Orbital Architect 2D — Multi-Planet Space Simulation</title>
+  <link rel="stylesheet" href="/game/game.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; user-select: none; }
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #060913;
+      color: #e2e8f0;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+    .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
+    
+    /* Custom Blueprint Grid Background */
+    .blueprint-bg {
+      background-color: #0a1428;
+      background-image:
+        linear-gradient(rgba(56, 189, 248, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56, 189, 248, 0.08) 1px, transparent 1px),
+        linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
+      background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    ::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.35); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.6); }
+
+    /* Range Slider Styling */
+    input[type="range"] {
+      -webkit-appearance: none;
+      background: rgba(30, 41, 59, 0.9);
+      height: 6px;
+      border-radius: 999px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      border: 2px solid #0f172a;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.7);
+    }
+
+    /* Vertical Throttle Slider */
+    .throttle-slider {
+      writing-mode: bt-lr;
+      -webkit-appearance: slider-vertical;
+      width: 10px;
+      height: 130px;
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 12px rgba(16, 185, 129, 0.4); }
+      50% { box-shadow: 0 0 22px rgba(16, 185, 129, 0.85); }
+    }
+    .launch-glow { animation: pulseGlow 2.4s infinite; }
+
+    @keyframes modalPopIn {
+      0% { opacity: 0; transform: scale(0.94) translateY(12px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .modal-animate { animation: modalPopIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  </style>
+</head>
+<body class="flex flex-col h-screen w-screen overflow-hidden">
+
+  <!-- TOP HEADER BAR -->
+  <header class="h-12 bg-slate-950/95 border-b border-slate-800 px-3 sm:px-5 flex items-center justify-between z-30 shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-sky-400 font-bold">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-sm sm:text-base font-bold tracking-wider text-slate-100 uppercase">Orbital Architect <span class="text-sky-400">2D</span></h1>
+        <p class="text-[10px] text-slate-400 hidden sm:block">Multi-Planet Astrodynamics &amp; Deep-Space Reconnaissance</p>
+      </div>
+    </div>
+
+    <!-- Mode Switcher & Global Actions -->
+    <div class="flex items-center gap-2">
+      <button id="btn-mission-log" onclick="toggleMissionLogModal()" class="hidden px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition bg-indigo-950/90 text-indigo-300 hover:bg-indigo-900 border border-indigo-500/40 flex items-center gap-1.5 cursor-pointer">
+        <span>📡 INTEL LOG</span>
+        <span id="intel-count-badge" class="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-500 text-slate-950 font-mono-tech font-bold">0</span>
+      </button>
+      <button id="btn-mode-vab" onclick="switchMode('VAB')" class="px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20">
+        🛠 VAB BUILDER
+      </button>
+      <button id="btn-mode-flight" onclick="switchMode('FLIGHT')" class="px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700">
+        🚀 FLIGHT
+      </button>
+      <button id="btn-mode-map" onclick="toggleMapMode()" class="px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 flex items-center gap-1.5">
+        <span>🗺 MAP</span>
+        <span class="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono-tech">M</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- NOTIFICATION TOAST -->
+  <div id="toast-container" class="fixed top-14 left-1/2 -translate-x-1/2 z-40 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- ===================================================================== -->
+  <!-- MISSION CHECKPOINT & PLANETARY INTEL POP-UP MODAL                -->
+  <!-- ===================================================================== -->
+  <div id="checkpoint-modal" class="hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="modal-animate bg-slate-900 border-2 border-sky-500/60 rounded-2xl max-w-lg w-full shadow-2xl shadow-sky-500/20 overflow-hidden flex flex-col">
+      <!-- Modal Header -->
+      <div id="cp-modal-header" class="bg-slate-950 px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span id="cp-modal-icon" class="text-2xl">🚀</span>
+          <div>
+            <div id="cp-modal-badge" class="text-[10px] font-mono-tech font-bold uppercase tracking-widest text-sky-400">MISSION CHECKPOINT 1 / 5</div>
+            <h2 id="cp-modal-title" class="text-base font-bold text-white tracking-wide">Liftoff &amp; Atmospheric Ascent</h2>
+          </div>
+        </div>
+        <span class="text-[10px] font-mono-tech px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">SIM PAUSED</span>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 space-y-4 overflow-y-auto max-h-[72vh]">
+        <p id="cp-modal-desc" class="text-sm text-slate-300 leading-relaxed"></p>
+
+        <!-- Planetary Data Grid (Shown for SOI Explorations & Orbital Stages) -->
+        <div id="cp-planetary-card" class="hidden bg-slate-950/90 border border-indigo-500/40 rounded-xl p-3.5 space-y-2.5">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+              <span>🛰 Deep-Space Planetary Telemetry</span>
+            </span>
+            <span id="cp-planetary-source-tag" class="text-[9px] font-mono-tech text-slate-400">DEEP-SPACE TELEMETRY ARCHIVE</span>
+          </div>
+          <div id="cp-planetary-grid" class="grid grid-cols-2 gap-2 text-xs font-mono-tech"></div>
+          <div id="cp-planetary-atmo-note" class="text-[11px] text-slate-300 bg-slate-900/90 rounded-lg p-2.5 border border-slate-800 leading-relaxed"></div>
+        </div>
+
+        <!-- Next Objective Guidance -->
+        <div id="cp-next-objective-box" class="bg-sky-950/40 border border-sky-500/30 rounded-xl p-3 flex items-start gap-2.5">
+          <span class="text-sky-400 text-sm mt-0.5">🎯</span>
+          <div class="text-xs">
+            <span class="font-bold text-sky-300 uppercase tracking-wider block mb-0.5">Next Mission Objective</span>
+            <span id="cp-next-objective-text" class="text-slate-300"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="bg-slate-950 px-5 py-3 border-t border-slate-800 flex items-center justify-between">
+        <span id="cp-queue-indicator" class="text-[11px] font-mono-tech text-slate-400"></span>
+        <button onclick="dismissCheckpointModal()" class="px-5 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-sky-500/20 cursor-pointer">
+          Acknowledge &amp; Resume Flight ▶
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MISSION INTEL ARCHIVE MODAL (REVIEW UNLOCKED CHECKPOINTS & PLANETARY DATA) -->
+  <!-- ===================================================================== -->
+  <div id="intel-archive-modal" class="hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="modal-animate bg-slate-900 border border-indigo-500/50 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[82vh]">
+      <div class="bg-slate-950 px-5 py-3.5 border-b border-slate-800 flex items-center justify-between">
+        <div>
+          <span class="text-[10px] font-mono-tech uppercase tracking-widest text-indigo-400">Deep-Space Reconnaissance Dossier</span>
+          <h2 class="text-base font-bold text-white">Mission Progress &amp; Captured Planetary Intel</h2>
+        </div>
+        <button onclick="toggleMissionLogModal()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 cursor-pointer">✕ Close</button>
+      </div>
+      <div id="intel-archive-list" class="p-5 overflow-y-auto space-y-3 text-xs"></div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- 1. VEHICLE ASSEMBLY BUILDING (VAB) VIEW                               -->
+  <!-- ===================================================================== -->
+  <main id="vab-view" class="flex-1 flex flex-col lg:flex-row overflow-hidden">
+    
+    <!-- LEFT PANEL: PART PALETTE -->
+    <aside class="w-full lg:w-80 bg-slate-900/95 border-b lg:border-b-0 lg:border-r border-slate-800 flex flex-col shrink-0 max-h-[34vh] lg:max-h-full">
+      <div class="p-3 border-b border-slate-800 flex items-center justify-between">
+        <span class="text-xs font-bold uppercase tracking-wider text-sky-400">Part Catalog</span>
+        <span class="text-[11px] text-slate-400">Click to attach</span>
+      </div>
+      <div id="part-palette" class="p-2.5 overflow-y-auto grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-2"></div>
+    </aside>
+
+    <!-- CENTER PANEL: BLUEPRINT ROCKET ASSEMBLY BAY -->
+    <section class="flex-1 blueprint-bg relative flex flex-col overflow-hidden">
+      <div class="p-3 flex flex-wrap items-center justify-between gap-2 bg-slate-950/60 backdrop-blur-sm border-b border-sky-500/20 z-10">
+        <div class="flex items-center gap-2">
+          <button onclick="loadPresetMoonRocket()" class="px-3 py-1.5 rounded-lg bg-indigo-600/90 hover:bg-indigo-500 text-white text-xs font-semibold shadow transition flex items-center gap-1.5">
+            <span>🚀 Load Interplanetary Probe Preset</span>
+          </button>
+          <button onclick="clearRocket()" class="px-2.5 py-1.5 rounded-lg bg-slate-800/90 hover:bg-rose-900/70 text-slate-300 hover:text-rose-200 border border-slate-700 text-xs font-medium transition">
+            Clear
+          </button>
+        </div>
+        <div class="text-[11px] font-mono-tech text-sky-300/80 hidden sm:block">
+          TOP ▲ NOSE &nbsp;|&nbsp; BOTTOM ▼ THRUSTERS
+        </div>
+      </div>
+
+      <div class="flex-1 relative flex items-center justify-center overflow-hidden">
+        <canvas id="vab-canvas" class="w-full h-full block"></canvas>
+        
+        <div class="absolute bottom-3 left-3 right-3 sm:right-auto sm:w-80 bg-slate-950/90 backdrop-blur-md border border-sky-500/30 rounded-xl p-3 shadow-xl">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[11px] font-bold uppercase tracking-wider text-sky-400">Vehicle Telemetry</span>
+            <span id="vab-twr-badge" class="text-[11px] font-mono-tech px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">TWR: 0.00</span>
+          </div>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs font-mono-tech">
+            <div class="flex justify-between">
+              <span class="text-slate-400">Wet Mass:</span>
+              <span id="stat-wet-mass" class="text-slate-100">0.0 t</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">Dry Mass:</span>
+              <span id="stat-dry-mass" class="text-slate-300">0.0 t</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">Total Δv:</span>
+              <span id="stat-total-dv" class="text-amber-300 font-bold">0 m/s</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">Sea TWR:</span>
+              <span id="stat-twr" class="text-emerald-400 font-bold">0.00</span>
+            </div>
+            <div class="flex justify-between col-span-2 border-t border-slate-800 pt-1 mt-0.5">
+              <span class="text-slate-400">LEO / Moon / Mars Req:</span>
+              <span class="text-sky-300">3.4k / 6.2k / 9.2k m/s</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: STAGING MANAGER & LAUNCH -->
+    <aside class="w-full lg:w-80 bg-slate-900/95 border-t lg:border-t-0 lg:border-l border-slate-800 flex flex-col shrink-0 max-h-[34vh] lg:max-h-full">
+      <div class="p-3 border-b border-slate-800 flex items-center justify-between">
+        <span class="text-xs font-bold uppercase tracking-wider text-amber-400">Staging &amp; Assembly</span>
+        <button onclick="autoStageRocket()" class="text-[11px] px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-300 border border-slate-700">
+          Auto-Stage
+        </button>
+      </div>
+      
+      <div id="vab-stack-list" class="flex-1 p-2.5 overflow-y-auto space-y-1.5"></div>
+
+      <div class="p-3 bg-slate-950 border-t border-slate-800">
+        <button onclick="launchRocket()" class="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-sm tracking-wider uppercase transition launch-glow flex items-center justify-center gap-2 cursor-pointer">
+          <span>🚀 LAUNCH TO PAD</span>
+        </button>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- 2. FLIGHT & MAP SIMULATION VIEW                                       -->
+  <!-- ===================================================================== -->
+  <main id="sim-view" class="hidden flex-1 relative overflow-hidden bg-black">
+    <canvas id="sim-canvas" class="w-full h-full block"></canvas>
+
+    <!-- LEFT FLOATING CONTROLS: VERTICAL THROTTLE SLIDER -->
+    <div class="absolute left-3 top-1/2 -translate-y-1/2 bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-xl p-3 flex flex-col items-center gap-2 pointer-events-auto shadow-lg z-20">
+      <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Throttle</span>
+      <span id="throttle-pct" class="text-xs font-mono-tech font-bold text-slate-100">0%</span>
+      <input type="range" id="throttle-slider" min="0" max="100" step="1" value="0" oninput="setThrottle(this.value / 100)" class="throttle-slider my-2">
+      <div class="flex flex-col gap-1 w-full">
+        <button onclick="setThrottle(1)" class="w-full py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-mono-tech text-amber-300 font-bold">MAX (Z)</button>
+        <button onclick="setThrottle(0)" class="w-full py-1 rounded bg-slate-800 hover:bg-slate-700 text-[10px] font-mono-tech text-slate-400 font-bold">CUT (X)</button>
+      </div>
+    </div>
+
+    <!-- TOP-LEFT: ORBITAL & FLIGHT TELEMETRY HUD -->
+    <div class="absolute top-3 left-16 bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-xl p-3 w-64 sm:w-72 pointer-events-auto shadow-lg">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+        <span id="hud-soi-badge" class="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30">
+          SOI: EARTH
+        </span>
+        <span id="hud-mission-time" class="text-xs font-mono-tech text-slate-400">T+ 00:00:00</span>
+      </div>
+      <div class="grid grid-cols-2 gap-y-1.5 text-xs font-mono-tech">
+        <div class="text-slate-400">Altitude:</div>
+        <div id="hud-alt" class="text-right text-slate-100 font-semibold">0 m</div>
+
+        <div class="text-slate-400">Velocity:</div>
+        <div id="hud-vel" class="text-right text-slate-100 font-semibold">0.0 m/s</div>
+
+        <div class="text-slate-400">Apoapsis (Ap):</div>
+        <div id="hud-ap" class="text-right text-sky-300">0 m</div>
+
+        <div class="text-slate-400">Periapsis (Pe):</div>
+        <div id="hud-pe" class="text-right text-indigo-300">-637.1 km</div>
+
+        <div class="text-slate-400">Rem. Δv:</div>
+        <div id="hud-dv" class="text-right text-amber-300 font-bold">0 m/s</div>
+
+        <div class="text-slate-400">Current TWR:</div>
+        <div id="hud-twr" class="text-right text-emerald-400">0.00</div>
+      </div>
+
+      <!-- Active Mission Checkpoint Status Pill -->
+      <div onclick="openCurrentCheckpointModal()" class="mt-2 pt-2 border-t border-slate-800 cursor-pointer group">
+        <div class="flex items-center justify-between text-[10px] font-mono-tech mb-0.5">
+          <span class="text-sky-400 font-bold group-hover:underline">📋 MISSION STAGE <span id="hud-cp-progress">1/5</span></span>
+          <span class="text-slate-400 group-hover:text-white">View ↗</span>
+        </div>
+        <div id="hud-cp-next-label" class="text-[11px] text-slate-200 truncate">1. Liftoff &amp; Atmospheric Ascent</div>
+      </div>
+
+      <!-- Patched Conic Encounter Telemetry Pill -->
+      <div id="hud-encounter-box" class="hidden mt-2 pt-2 border-t border-purple-500/30 bg-purple-950/30 rounded-lg p-2 text-[11px] font-mono-tech space-y-1">
+        <div class="flex items-center justify-between text-purple-300 font-bold">
+          <span id="hud-encounter-title">🪐 SOI INTERCEPT</span>
+          <span class="px-1.5 py-0.2 rounded bg-purple-500/20 text-[9px]">CONIC</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-400">Target Periapsis:</span>
+          <span id="hud-encounter-pe" class="text-purple-200 font-bold">--</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-400">SOI Entry In:</span>
+          <span id="hud-soi-in-time" class="text-emerald-300">--</span>
+        </div>
+      </div>
+
+      <!-- Current Stage Propellant Bar -->
+      <div class="mt-2.5 pt-2 border-t border-slate-800">
+        <div class="flex justify-between text-[11px] font-mono-tech mb-1">
+          <span class="text-slate-400">STAGE <span id="hud-stage-num">0</span> FUEL</span>
+          <span id="hud-fuel-pct" class="text-amber-400">100%</span>
+        </div>
+        <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+          <div id="hud-fuel-bar" class="h-full bg-gradient-to-r from-amber-500 to-yellow-400 transition-all duration-75" style="width: 100%"></div>
+        </div>
+        <div class="flex justify-between items-center text-[10px] font-mono-tech text-slate-400 mt-1.5">
+          <span>NEXT: <span id="hud-next-stage-label" class="text-amber-300 font-bold">STAGE 3</span></span>
+          <span id="hud-active-eng-count" class="text-emerald-400">0 ENG ACTIVE</span>
+        </div>
+        <button onclick="activateNextStage()" class="mt-2 w-full py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 active:scale-[0.99] text-slate-950 font-extrabold text-[11px] uppercase tracking-wider transition shadow-md shadow-amber-500/20 cursor-pointer">
+          🔥 Stage / Ignite (SPACE)
+        </button>
+      </div>
+    </div>
+
+    <!-- TOP-CENTER: TIME WARP & DYNAMIC MAP CAMERA CONTROLS -->
+    <div class="absolute top-3 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-auto z-20">
+      <div class="bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-xl px-2.5 py-1.5 flex items-center gap-1 shadow-lg">
+        <span class="text-[10px] font-bold uppercase text-slate-400 mr-1 hidden sm:inline">Warp:</span>
+        <button onclick="setTimeWarp(1)" data-warp="1" class="warp-btn px-2 py-1 rounded text-xs font-mono-tech font-bold bg-sky-500 text-slate-950">1x</button>
+        <button onclick="setTimeWarp(3)" data-warp="3" title="Physics Warp (Available Under Thrust)" class="warp-btn px-2 py-1 rounded text-xs font-mono-tech bg-slate-800 text-amber-300 hover:bg-slate-700 border border-amber-500/30">3x</button>
+        <button onclick="setTimeWarp(5)" data-warp="5" class="warp-btn px-2 py-1 rounded text-xs font-mono-tech bg-slate-800 text-slate-300 hover:bg-slate-700">5x</button>
+        <button onclick="setTimeWarp(25)" data-warp="25" class="warp-btn px-2 py-1 rounded text-xs font-mono-tech bg-slate-800 text-slate-300 hover:bg-slate-700">25x</button>
+        <button onclick="setTimeWarp(100)" data-warp="100" class="warp-btn px-2 py-1 rounded text-xs font-mono-tech bg-slate-800 text-slate-300 hover:bg-slate-700">100x</button>
+        <button onclick="setTimeWarp(1000)" data-warp="1000" class="warp-btn px-2 py-1 rounded text-xs font-mono-tech bg-slate-800 text-slate-300 hover:bg-slate-700">1000x</button>
+        <button onclick="setTimeWarp(5000)" data-warp="5000" class="warp-btn px-2 py-1 rounded text-xs font-mono-tech bg-slate-800 text-slate-300 hover:bg-slate-700">5000x</button>
+        <button onclick="setTimeWarp(25000)" data-warp="25000" class="warp-btn px-2 py-1 rounded text-xs font-mono-tech bg-slate-800 text-slate-300 hover:bg-slate-700">25kx</button>
+      </div>
+
+      <!-- Dynamically Populated Map Focus & Zoom Toolbar -->
+      <div id="map-toolbar" class="hidden bg-slate-950/90 backdrop-blur-md border border-sky-500/30 rounded-xl px-3 py-1.5 flex flex-wrap items-center justify-center gap-1.5 shadow-lg max-w-[92vw]">
+        <span class="text-[11px] font-bold text-sky-400 uppercase">Focus:</span>
+        <div id="map-focus-buttons" class="flex flex-wrap items-center gap-1"></div>
+        <div class="h-4 w-px bg-slate-700 mx-0.5"></div>
+        <button onclick="zoomMap(1.35)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm flex items-center justify-center">+</button>
+        <button onclick="zoomMap(0.74)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm flex items-center justify-center">−</button>
+      </div>
+    </div>
+
+    <!-- TOP-RIGHT: DYNAMIC TARGETING & MANEUVER NODE PLANNER -->
+    <div class="absolute top-3 right-3 bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-xl p-3 w-64 sm:w-72 pointer-events-auto shadow-lg">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-400">Navigation &amp; Target</span>
+        <select id="target-select" onchange="selectTarget(this.value)" class="bg-slate-900 border border-slate-700 rounded px-2 py-0.5 text-xs text-slate-200 outline-none">
+          <option value="NONE">No Target</option>
+        </select>
+      </div>
+
+      <div id="target-info-panel" class="hidden bg-indigo-950/40 border border-indigo-500/30 rounded-lg p-2 mb-2 text-xs font-mono-tech space-y-1.5">
+        <div class="flex justify-between">
+          <span class="text-indigo-300">Target Body:</span>
+          <span id="nav-target-name" class="text-white font-bold">--</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-indigo-300">Transfer Type:</span>
+          <span id="nav-transfer-type" class="text-sky-300 font-semibold">--</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-indigo-300">Est. Transfer Δv:</span>
+          <span id="nav-target-dv" class="text-amber-300 font-bold">--</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-indigo-300">Phase Angle:</span>
+          <span id="nav-phase-angle" class="text-slate-200">0.0°</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-indigo-300">Est. Burn Time:</span>
+          <span id="nav-target-burn-time" class="text-emerald-300 font-bold">0.0 s</span>
+        </div>
+        <button onclick="autoPlotTransfer()" class="w-full py-1.5 px-2 rounded bg-indigo-600 hover:bg-indigo-500 text-white font-sans font-bold text-[11px] tracking-wide shadow transition cursor-pointer">
+          ⚡ Auto-Plot Hohmann Transfer
+        </button>
+      </div>
+
+      <div id="maneuver-container" class="border-t border-slate-800 pt-2 mt-2">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-sky-400">Maneuver Node</span>
+          <div class="flex items-center gap-1">
+            <button id="btn-warp-node" onclick="warpToManeuverNode()" class="hidden text-[10px] px-1.5 py-0.5 rounded bg-sky-950 hover:bg-sky-800 text-sky-300 border border-sky-800 font-mono-tech cursor-pointer">⚡ Warp to Node</button>
+            <button id="btn-clear-node" onclick="clearManeuverNode()" class="hidden text-[10px] px-1.5 py-0.5 rounded bg-rose-950 hover:bg-rose-900 text-rose-300 border border-rose-800 cursor-pointer">Clear</button>
+          </div>
+        </div>
+        <div id="maneuver-empty-hint" class="text-[10px] text-slate-400 italic">Click trajectory in Map view or auto-plot transfer to place a node.</div>
+        <div id="maneuver-active-controls" class="hidden space-y-1.5 text-xs font-mono-tech">
+          <div class="flex justify-between">
+            <span class="text-slate-400">Total Δv:</span>
+            <span id="node-dv-readout" class="text-amber-300 font-bold">0 m/s</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Time to Node:</span>
+            <span id="node-countdown" class="text-sky-300 font-bold">T- 00:00</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-400">Est. Burn Time:</span>
+            <span id="node-burn-time" class="text-emerald-300">0.0 s</span>
+          </div>
+          <div id="node-encounter-badge" class="hidden text-center text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold animate-pulse">
+            ✨ <span id="node-enc-body-label">SOI</span> ENCOUNTER (<span id="node-enc-pe-label">Pe: --</span>)
+          </div>
+          <div class="space-y-1 pt-1">
+            <div class="flex justify-between text-[10px]">
+              <span class="text-slate-400">Prograde: <span id="node-prograde-val" class="text-amber-300">0 m/s</span></span>
+            </div>
+            <input type="range" id="slider-prograde" min="-4500" max="4500" step="10" value="0" oninput="updateNodeFromSliders()" class="w-full">
+            <div class="flex justify-between text-[10px]">
+              <span class="text-slate-400">Radial: <span id="node-radial-val" class="text-sky-300">0 m/s</span></span>
+            </div>
+            <input type="range" id="slider-radial" min="-2000" max="2000" step="10" value="0" oninput="updateNodeFromSliders()" class="w-full">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM-CENTER: NAVBALL & SAS AUTOPILOT -->
+    <div class="absolute bottom-3 left-1/2 -translate-x-1/2 bg-slate-950/85 backdrop-blur-md border border-slate-800 rounded-2xl px-4 py-2.5 flex items-center gap-4 pointer-events-auto shadow-xl">
+      <div class="flex flex-col gap-1">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">SAS Autopilot</span>
+        <div class="grid grid-cols-2 gap-1">
+          <button onclick="setSAS('MANUAL')" data-sas="MANUAL" class="sas-btn px-2 py-1 rounded text-[11px] font-semibold bg-sky-500 text-slate-950">Manual</button>
+          <button onclick="setSAS('PROGRADE')" data-sas="PROGRADE" class="sas-btn px-2 py-1 rounded text-[11px] font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Prograde</button>
+          <button onclick="setSAS('RETROGRADE')" data-sas="RETROGRADE" class="sas-btn px-2 py-1 rounded text-[11px] font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Retrograde</button>
+          <button onclick="setSAS('NODE')" data-sas="NODE" class="sas-btn px-2 py-1 rounded text-[11px] font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700">Node</button>
+        </div>
+      </div>
+
+      <div class="relative flex flex-col items-center">
+        <canvas id="navball-canvas" width="96" height="96" class="rounded-full border-2 border-slate-700 shadow-inner"></canvas>
+        <span id="navball-hdg" class="text-[10px] font-mono-tech text-slate-300 mt-1">HDG: 000°</span>
+      </div>
+
+      <div class="flex flex-col items-center gap-1.5">
+        <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Steer</span>
+        <div class="flex gap-1.5">
+          <button onmousedown="steerInput = -1" onmouseup="steerInput = 0" onmouseleave="steerInput = 0" ontouchstart="steerInput = -1" ontouchend="steerInput = 0" class="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-sky-500 active:text-slate-950 font-bold text-sm border border-slate-700">↺ A</button>
+          <button onmousedown="steerInput = 1" onmouseup="steerInput = 0" onmouseleave="steerInput = 0" ontouchstart="steerInput = 1" ontouchend="steerInput = 0" class="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-sky-500 active:text-slate-950 font-bold text-sm border border-slate-700">D ↻</button>
+        </div>
+        <button onclick="openCurrentCheckpointModal()" class="w-full py-1 rounded bg-sky-600/80 hover:bg-sky-500 text-[10px] font-bold uppercase tracking-wider text-white cursor-pointer">
+          Mission Info
+        </button>
+      </div>
+    </div>
+
+    <!-- BOTTOM-RIGHT: MAP & PATCHED CONIC LEGEND -->
+    <div class="hidden xl:block absolute bottom-3 right-3 bg-slate-950/80 backdrop-blur-md border border-slate-800 rounded-xl p-3 w-72 text-[11px] text-slate-400 space-y-1 pointer-events-none">
+      <div class="font-bold text-slate-200 uppercase tracking-wider mb-1">Patched Conics &amp; Controls</div>
+      <div class="flex justify-between"><span>Throttle / Cut:</span><span class="font-mono-tech text-slate-200">Shift/Ctrl • Z/X</span></div>
+      <div class="flex justify-between"><span>Stage / Map View:</span><span class="font-mono-tech text-amber-300">Space • M</span></div>
+      <div class="border-t border-slate-800 pt-1 mt-1 space-y-0.5 text-[10px]">
+        <div><span class="text-sky-400 font-bold">━━ Sky Blue:</span> Active SOI Conic Trajectory</div>
+        <div><span class="text-purple-400 font-bold">━━ Purple/Emerald:</span> Patched Target SOI Conic</div>
+        <div><span class="text-fuchsia-400 font-bold">┄┄ Magenta Dashed:</span> Live Thrust Trajectory</div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // =========================================================================
+    // 1. SCALABLE HIERARCHICAL CELESTIAL SYSTEM + PLANETARY TELEMETRY RECORDS
+    // =========================================================================
+    const G = 6.67430e-11;
+    const g0 = 9.80665;
+
+    const PLANETARY_TELEMETRY_RECORDS = {
+      SUN: {
+        title: 'Solar Heliocentric SOI Reconnaissance',
+        badge: 'DEEP SPACE • HELIOCENTRIC ORBIT',
+        icon: '☀️',
+        sourceTag: 'Solar System Physical Parameters',
+        summary: 'Your spacecraft has escaped Earth’s Sphere of Influence and entered interplanetary heliocentric orbit around the Sun. From here, Hohmann transfer windows allow you to intercept neighboring planets.',
+        metrics: [
+          { label: 'Surface Gravity', value: '274.0 m/s² (27.9 g)' },
+          { label: 'Escape Velocity', value: '617.7 km/s' },
+          { label: 'Mean Radius', value: '695,700 km' },
+          { label: 'GM (μ)', value: '1.3271244 × 10²⁰ m³/s²' }
+        ],
+        atmosphereNote: 'Atmosphere & Corona: Composed primarily of hydrogen (~73%) and helium (~25%) plasma. Solar corona temperatures exceed 1–2 million Kelvin, generating continuous solar wind across the Solar System.',
+        nextObjective: 'Select Venus or Mars in the Navigation panel and plot an interplanetary transfer burn.'
+      },
+      VENUS: {
+        title: 'Venus SOI Intercept & Orbital Intel',
+        badge: 'PLANETARY FLYBY / ORBIT • VENUS SOI',
+        icon: '🌕',
+        sourceTag: 'Venus Planetary Fact Sheet',
+        summary: 'Your probe has entered Venus’s Sphere of Influence! Because this is an uncrewed reconnaissance mission, your sensors are scanning Venus’s dense supercritical atmosphere and gravitational field without landing.',
+        metrics: [
+          { label: 'Surface Gravity', value: '8.87 m/s² (0.904 g)' },
+          { label: 'Escape Velocity', value: '10.36 km/s' },
+          { label: 'Mean Radius', value: '6,051.8 km' },
+          { label: 'Orbital Period', value: '224.70 Earth days' }
+        ],
+        atmosphereNote: 'Atmosphere: Super-dense 96.5% CO₂ and 3.5% N₂ atmosphere with a surface pressure of 92 bar (90× Earth) and clouds of sulfuric acid (H₂SO₄). Runaway greenhouse effect drives surface temperatures to 737 K (464 °C).',
+        nextObjective: 'Perform a retrograde burn near Venus periapsis to capture into orbit, or continue exploring other worlds.'
+      },
+      EARTH: {
+        title: 'Earth Orbital Domain',
+        badge: 'HOME PLANET • EARTH SOI',
+        icon: '🌍',
+        sourceTag: 'Earth Planetary Fact Sheet',
+        summary: 'Operating within Earth’s Sphere of Influence. Earth’s expanded SOI fully encompasses the Moon’s orbit, allowing direct Earth-to-Moon orbital transfers without entering heliocentric space.',
+        metrics: [
+          { label: 'Surface Gravity', value: '9.80665 m/s² (1.0 g)' },
+          { label: 'Escape Velocity', value: '11.186 km/s' },
+          { label: 'Mean Radius', value: '6,371.0 km' },
+          { label: 'Orbital Velocity', value: '29.78 km/s' }
+        ],
+        atmosphereNote: 'Atmosphere: 78.08% Nitrogen (N₂), 20.95% Oxygen (O₂), 0.93% Argon, and trace CO₂/H₂O. Surface pressure is 1.014 bar with a Kármán space boundary at 100 km (70 km in simulation).',
+        nextObjective: 'Build your trajectory toward the Moon or escape Earth SOI for interplanetary exploration.'
+      },
+      MOON: {
+        title: 'Lunar SOI Reconnaissance (No Landing)',
+        badge: 'LUNAR ORBITAL INTEL • MOON SOI',
+        icon: '🌙',
+        sourceTag: 'Lunar Planetary Fact Sheet',
+        summary: 'Your spacecraft has entered the Moon’s Sphere of Influence! Per mission parameters, the spacecraft will NOT land on the lunar surface—instead, orbital telemetry is capturing gravitational and exospheric data.',
+        metrics: [
+          { label: 'Surface Gravity', value: '1.62 m/s² (0.165 g)' },
+          { label: 'Escape Velocity', value: '2.38 km/s' },
+          { label: 'Mean Radius', value: '1,737.4 km' },
+          { label: 'Mean Orbit Dist.', value: '384,400 km (11,500 km sim)' }
+        ],
+        atmosphereNote: 'Atmosphere / Exosphere: Virtually airless surface-bounded exosphere (~10⁻¹² torr; ~2 × 10⁵ molecules/cm³). Trace elements detected include Helium-4, Argon-40, Neon-20, Sodium, and Potassium—offering zero aerodynamic drag.',
+        nextObjective: 'Capture into lunar orbit via a retrograde burn at Periapsis, or use a lunar gravity assist toward Mars!'
+      },
+      MARS: {
+        title: 'Mars SOI Reconnaissance & Atmospheric Scan',
+        badge: 'INTERPLANETARY TARGET • MARS SOI',
+        icon: '🔴',
+        sourceTag: 'Mars Planetary Fact Sheet',
+        summary: 'Mission milestone achieved: Your probe has entered Mars’s Sphere of Influence! Remote sensing instruments are recording Mars’s gravitational parameters and thin CO₂ atmosphere from orbit.',
+        metrics: [
+          { label: 'Surface Gravity', value: '3.71 m/s² (0.378 g)' },
+          { label: 'Escape Velocity', value: '5.027 km/s' },
+          { label: 'Mean Radius', value: '3,389.5 km' },
+          { label: 'Orbital Period', value: '686.98 Earth days' }
+        ],
+        atmosphereNote: 'Atmosphere: Thin atmosphere composed of 95.32% Carbon Dioxide (CO₂), 2.7% Nitrogen (N₂), 1.6% Argon (Ar), and 0.13% O₂. Mean surface pressure is just 6.36 mbar (< 1% of Earth’s) with a scale height of 11.1 km.',
+        nextObjective: 'Burn retrograde at Mars Periapsis to establish a stable science orbit, or visit Mars’s moon Phobos!'
+      },
+      PHOBOS: {
+        title: 'Phobos SOI Close Flyby Reconnaissance',
+        badge: 'MARTIAN MOON • PHOBOS SOI',
+        icon: '🪨',
+        sourceTag: 'Martian Satellite Data',
+        summary: 'Your probe has entered the tiny Sphere of Influence of Phobos, Mars’s innermost and larger moon! Because Phobos has ultra-low microgravity, orbital maneuvers require minimal Δv.',
+        metrics: [
+          { label: 'Surface Gravity', value: '0.0057 m/s² (0.00058 g)' },
+          { label: 'Escape Velocity', value: '11.39 m/s' },
+          { label: 'Mean Radius', value: '11.27 km (45 km sim)' },
+          { label: 'Orbital Radius', value: '9,376 km from Mars' }
+        ],
+        atmosphereNote: 'Atmosphere: None (vacuum). Phobos’s escape velocity is only ~11.4 m/s—so low that it cannot retain any gas molecules, and dust ejected by micrometeorites forms a faint transient torus around Mars.',
+        nextObjective: 'Collect close-range spectral data of Phobos and continue deep-space reconnaissance.'
+      }
+    };
+
+    const CELESTIAL_BODIES = {
+      SUN: {
+        id: 'SUN',
+        name: 'Sun',
+        icon: '☀️',
+        type: 'star',
+        parent: null,
+        orbitRadius: 0,
+        initialAngle: 0,
+        radius: 6960000,
+        mass: 1.989e26,
+        atmoHeight: 0,
+        color: '#f59e0b',
+        surfaceColor: '#fbbf24',
+        atmoColor: 'rgba(251, 191, 36, 0.35)'
+      },
+      VENUS: {
+        id: 'VENUS',
+        name: 'Venus',
+        icon: '🌕',
+        type: 'planet',
+        parent: 'SUN',
+        orbitRadius: 108000000,
+        initialAngle: 2.15,
+        radius: 605180,
+        mass: 4.867e22,
+        atmoHeight: 90000,
+        color: '#eab308',
+        surfaceColor: '#ca8a04',
+        atmoColor: 'rgba(250, 204, 21, 0.42)'
+      },
+      EARTH: {
+        id: 'EARTH',
+        name: 'Earth',
+        icon: '🌍',
+        type: 'planet',
+        parent: 'SUN',
+        orbitRadius: 150000000,
+        initialAngle: 0.25,
+        radius: 637100,
+        mass: 5.965e22,
+        soiRadiusOverride: 28000000,
+        atmoHeight: 70000,
+        hasLaunchpad: true,
+        color: '#1d4ed8',
+        surfaceColor: '#15803d',
+        atmoColor: 'rgba(56, 189, 248, 0.38)'
+      },
+      MOON: {
+        id: 'MOON',
+        name: 'Moon',
+        icon: '🌙',
+        type: 'moon',
+        parent: 'EARTH',
+        orbitRadius: 11500000,
+        initialAngle: 0.55,
+        radius: 173700,
+        mass: 7.34e20,
+        atmoHeight: 0,
+        color: '#94a3b8',
+        surfaceColor: '#cbd5e1',
+        atmoColor: null
+      },
+      MARS: {
+        id: 'MARS',
+        name: 'Mars',
+        icon: '🔴',
+        type: 'planet',
+        parent: 'SUN',
+        orbitRadius: 228000000,
+        initialAngle: 1.05,
+        radius: 338950,
+        mass: 6.417e21,
+        atmoHeight: 35000,
+        color: '#dc2626',
+        surfaceColor: '#b45309',
+        atmoColor: 'rgba(248, 113, 113, 0.28)'
+      },
+      PHOBOS: {
+        id: 'PHOBOS',
+        name: 'Phobos',
+        icon: '🪨',
+        type: 'moon',
+        parent: 'MARS',
+        orbitRadius: 9376000,
+        initialAngle: 0.8,
+        radius: 45000,
+        mass: 1.2e19,
+        atmoHeight: 0,
+        color: '#a8a29e',
+        surfaceColor: '#78716c',
+        atmoColor: null
+      }
+    };
+
+    const BODY_IDS = Object.keys(CELESTIAL_BODIES);
+    const HOME_BODY_ID = 'EARTH';
+    const ROOT_BODY_ID = 'SUN';
+
+    // =========================================================================
+    // SEQUENTIAL MISSION CHECKPOINT SYSTEM (STRICTLY ORDERED 1 -> 5)
+    // =========================================================================
+    const MISSION_CHECKPOINTS = [
+      {
+        id: 1,
+        code: 'CP-01',
+        title: 'Liftoff & Atmospheric Ascent',
+        icon: '🔥',
+        desc: 'Main engines ignited and vehicle has cleared the launchpad! You are climbing through Earth’s dense lower troposphere (78% N₂, 21% O₂). Keep climbing vertically to clear aerodynamic drag before beginning your eastward gravity turn.',
+        nextObjective: 'Climb above 12 km altitude and begin pitching eastward (45°–60°) to build horizontal orbital velocity.',
+        planetaryCard: null
+      },
+      {
+        id: 2,
+        code: 'CP-02',
+        title: 'Gravity Turn & Upper Atmosphere',
+        icon: '📐',
+        desc: 'You have passed 12 km altitude into the upper stratosphere where atmospheric density drops exponentially. By pitching sideways (prograde), your rocket converts thrust into horizontal speed so you fall around Earth rather than straight back down.',
+        nextObjective: 'Continue burning until your Apoapsis (Ap) exceeds 75 km (above Earth’s 70 km atmosphere boundary).',
+        planetaryCard: null
+      },
+      {
+        id: 3,
+        code: 'CP-03',
+        title: 'Kármán Line Crossed — Space Reached!',
+        icon: '🌌',
+        desc: 'Congratulations! Your rocket has crossed Earth’s atmospheric boundary (70 km in simulation; 100 km real-world Kármán line) into the vacuum of space. Aerodynamic drag is now zero, and your high-efficiency vacuum stage can operate at full specific impulse.',
+        nextObjective: 'Coast to Apoapsis (Ap) and burn Prograde until your Periapsis (Pe) also rises above 70 km to achieve a stable Earth orbit.',
+        planetaryCard: null
+      },
+      {
+        id: 4,
+        code: 'CP-04',
+        title: 'Stable Low Earth Orbit (LEO) Achieved',
+        icon: '🛰️',
+        desc: 'Orbit insertion confirmed! Both your Apoapsis and Periapsis are above Earth’s atmosphere. Your spacecraft is now in free-fall around Earth. Remember: this is a one-way deep-space reconnaissance mission—you will NOT return to Earth or land on any surface.',
+        nextObjective: 'Open Map View (M), select a target body (Moon, Mars, or Venus), and plot a Hohmann Transfer node.',
+        planetaryCard: {
+          sourceTag: 'Earth Orbital Reference',
+          metrics: [
+            { label: 'Earth Gravity (g)', value: '9.80665 m/s²' },
+            { label: 'Earth GM (μ)', value: '3.986 × 10¹⁴ m³/s²' },
+            { label: 'Atmosphere', value: '78% N₂, 21% O₂, 1% Ar' },
+            { label: 'Mission Profile', value: 'One-Way Orbital Recon' }
+          ],
+          atmosphereNote: 'Telemetry Status: Spacecraft systems nominal in Low Earth Orbit. Deep-space trajectory computer unlocked for Lunar and Interplanetary SOI transfers.'
+        }
+      },
+      {
+        id: 5,
+        code: 'CP-05',
+        title: 'Trans-Planetary Injection Burn Executed',
+        icon: '🧭',
+        desc: 'Your orbital velocity has increased beyond Low Earth Orbit, raising your trajectory toward interplanetary/lunar space! As soon as your spacecraft enters any moon or planet’s Sphere of Influence (SOI), onboard sensors will automatically transmit planetary science data.',
+        nextObjective: 'Use Time Warp or "Warp to Node" to coast into the Sphere of Influence of the Moon, Mars, Venus, or Phobos.',
+        planetaryCard: null
+      }
+    ];
+
+    let missionState = {
+      completedCheckpoints: [],
+      exploredBodies: [],
+      modalQueue: [],
+      activeModal: null,
+      isPausedByModal: false,
+      lastDisplayedItem: null
+    };
+
+    function resetMissionProgress() {
+      missionState = {
+        completedCheckpoints: [],
+        exploredBodies: ['EARTH'],
+        modalQueue: [],
+        activeModal: null,
+        isPausedByModal: false,
+        lastDisplayedItem: MISSION_CHECKPOINTS[0]
+      };
+      updateMissionHUD();
+    }
+
+    function triggerSequentialCheckpoint(checkpointId) {
+      if (missionState.completedCheckpoints.includes(checkpointId)) return;
+      for (let req = 1; req < checkpointId; req++) {
+        if (!missionState.completedCheckpoints.includes(req)) return;
+      }
+
+      const cp = MISSION_CHECKPOINTS.find(c => c.id === checkpointId);
+      if (!cp) return;
+
+      missionState.completedCheckpoints.push(checkpointId);
+      enqueueMissionModal({
+        kind: 'CHECKPOINT',
+        badge: `MISSION CHECKPOINT ${cp.id} / ${MISSION_CHECKPOINTS.length}`,
+        title: cp.title,
+        icon: cp.icon,
+        desc: cp.desc,
+        planetaryCard: cp.planetaryCard,
+        nextObjective: cp.nextObjective
+      });
+      updateMissionHUD();
+    }
+
+    function triggerPlanetSOIExploration(bodyId) {
+      if (missionState.exploredBodies.includes(bodyId)) return;
+      const record = PLANETARY_TELEMETRY_RECORDS[bodyId];
+      const body = CELESTIAL_BODIES[bodyId];
+      if (!record || !body) return;
+
+      missionState.exploredBodies.push(bodyId);
+      enqueueMissionModal({
+        kind: 'PLANET_SOI',
+        badge: record.badge,
+        title: record.title,
+        icon: record.icon,
+        desc: record.summary,
+        planetaryCard: {
+          sourceTag: record.sourceTag,
+          metrics: record.metrics,
+          atmosphereNote: record.atmosphereNote
+        },
+        nextObjective: record.nextObjective
+      });
+      updateMissionHUD();
+    }
+
+    function enqueueMissionModal(modalPayload) {
+      missionState.modalQueue.push(modalPayload);
+      missionState.lastDisplayedItem = modalPayload;
+      if (!missionState.activeModal) {
+        presentNextModalInQueue();
+      } else {
+        updateQueueIndicator();
+      }
+    }
+
+    function presentNextModalInQueue() {
+      if (missionState.modalQueue.length === 0) {
+        missionState.activeModal = null;
+        missionState.isPausedByModal = false;
+        document.getElementById('checkpoint-modal').classList.add('hidden');
+        return;
+      }
+
+      const item = missionState.modalQueue.shift();
+      missionState.activeModal = item;
+      missionState.isPausedByModal = true;
+
+      if (sim.timeWarp > 1) setTimeWarp(1);
+
+      document.getElementById('cp-modal-icon').textContent = item.icon;
+      document.getElementById('cp-modal-badge').textContent = item.badge;
+      document.getElementById('cp-modal-title').textContent = item.title;
+      document.getElementById('cp-modal-desc').textContent = item.desc;
+      document.getElementById('cp-next-objective-text').textContent = item.nextObjective;
+
+      const modalBox = document.querySelector('#checkpoint-modal > div');
+      if (item.kind === 'PLANET_SOI') {
+        modalBox.className = 'modal-animate bg-slate-900 border-2 border-purple-500/70 rounded-2xl max-w-lg w-full shadow-2xl shadow-purple-500/20 overflow-hidden flex flex-col';
+        document.getElementById('cp-modal-badge').className = 'text-[10px] font-mono-tech font-bold uppercase tracking-widest text-purple-400';
+      } else {
+        modalBox.className = 'modal-animate bg-slate-900 border-2 border-sky-500/60 rounded-2xl max-w-lg w-full shadow-2xl shadow-sky-500/20 overflow-hidden flex flex-col';
+        document.getElementById('cp-modal-badge').className = 'text-[10px] font-mono-tech font-bold uppercase tracking-widest text-sky-400';
+      }
+
+      const planetaryCardEl = document.getElementById('cp-planetary-card');
+      if (item.planetaryCard) {
+        planetaryCardEl.classList.remove('hidden');
+        document.getElementById('cp-planetary-source-tag').textContent = item.planetaryCard.sourceTag;
+        document.getElementById('cp-planetary-atmo-note').textContent = item.planetaryCard.atmosphereNote;
+        const gridEl = document.getElementById('cp-planetary-grid');
+        gridEl.innerHTML = item.planetaryCard.metrics.map(m => `
+          <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-2">
+            <div class="text-[10px] text-slate-400">${m.label}</div>
+            <div class="text-slate-100 font-bold mt-0.5">${m.value}</div>
+          </div>
+        `).join('');
+      } else {
+        planetaryCardEl.classList.add('hidden');
+      }
+
+      updateQueueIndicator();
+      document.getElementById('checkpoint-modal').classList.remove('hidden');
+    }
+
+    function updateQueueIndicator() {
+      const qEl = document.getElementById('cp-queue-indicator');
+      if (!qEl) return;
+      if (missionState.modalQueue.length > 0) {
+        qEl.textContent = `+${missionState.modalQueue.length} more telemetry alert(s) queued`;
+      } else {
+        qEl.textContent = 'Flight simulation paused for telemetry review';
+      }
+    }
+
+    function dismissCheckpointModal() {
+      presentNextModalInQueue();
+    }
+
+    function openCurrentCheckpointModal() {
+      if (!sim.running) return;
+      const latestId = missionState.completedCheckpoints.length > 0
+        ? missionState.completedCheckpoints[missionState.completedCheckpoints.length - 1]
+        : 1;
+      const cp = MISSION_CHECKPOINTS.find(c => c.id === latestId) || MISSION_CHECKPOINTS[0];
+      enqueueMissionModal({
+        kind: 'CHECKPOINT',
+        badge: `MISSION CHECKPOINT ${cp.id} / ${MISSION_CHECKPOINTS.length}`,
+        title: cp.title,
+        icon: cp.icon,
+        desc: cp.desc,
+        planetaryCard: cp.planetaryCard,
+        nextObjective: cp.nextObjective
+      });
+    }
+
+    function toggleMissionLogModal() {
+      const modal = document.getElementById('intel-archive-modal');
+      const isHidden = modal.classList.contains('hidden');
+      if (!isHidden) {
+        modal.classList.add('hidden');
+        return;
+      }
+
+      const listEl = document.getElementById('intel-archive-list');
+      let html = `<div class="text-[11px] font-bold uppercase tracking-wider text-sky-400 mb-1">Sequential Mission Checkpoints (${missionState.completedCheckpoints.length}/${MISSION_CHECKPOINTS.length})</div>`;
+
+      MISSION_CHECKPOINTS.forEach(cp => {
+        const unlocked = missionState.completedCheckpoints.includes(cp.id);
+        html += `
+          <div class="p-3 rounded-xl border ${unlocked ? 'bg-slate-950/90 border-sky-500/40' : 'bg-slate-950/40 border-slate-800 opacity-55'}">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-bold text-slate-100">${cp.icon} ${cp.id}. ${cp.title}</span>
+              <span class="text-[10px] font-mono-tech px-2 py-0.5 rounded ${unlocked ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'}">
+                ${unlocked ? 'COMPLETED' : 'LOCKED (IN ORDER)'}
+              </span>
+            </div>
+            <p class="text-slate-400 leading-relaxed">${unlocked ? cp.desc : 'Complete previous mission stages in order to unlock this checkpoint.'}</p>
+          </div>
+        `;
+      });
+
+      html += `<div class="text-[11px] font-bold uppercase tracking-wider text-purple-400 pt-3 mb-1">Explored Celestial Bodies (SOI Intel)</div>`;
+      BODY_IDS.forEach(id => {
+        const b = CELESTIAL_BODIES[id];
+        const rec = PLANETARY_TELEMETRY_RECORDS[id];
+        const visited = missionState.exploredBodies.includes(id);
+        html += `
+          <div class="p-3 rounded-xl border ${visited ? 'bg-slate-950/90 border-purple-500/40' : 'bg-slate-950/40 border-slate-800 opacity-55'}">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-bold text-slate-100">${b.icon} ${b.name} SOI</span>
+              <span class="text-[10px] font-mono-tech px-2 py-0.5 rounded ${visited ? 'bg-purple-500/20 text-purple-300' : 'bg-slate-800 text-slate-400'}">
+                ${visited ? 'INTEL CAPTURED' : 'UNEXPLORED'}
+              </span>
+            </div>
+            ${visited && rec ? `
+              <p class="text-slate-300 mb-2">${rec.atmosphereNote}</p>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 font-mono-tech text-[10px]">
+                ${rec.metrics.map(m => `<div class="bg-slate-900 p-1.5 rounded border border-slate-800"><span class="text-slate-400 block">${m.label}</span><span class="text-slate-100 font-bold">${m.value}</span></div>`).join('')}
+              </div>
+            ` : `<p class="text-slate-500 italic">Enter ${b.name}'s Sphere of Influence to capture orbital and atmospheric data.</p>`}
+          </div>
+        `;
+      });
+
+      listEl.innerHTML = html;
+      modal.classList.remove('hidden');
+    }
+
+    function updateMissionHUD() {
+      const doneCount = missionState.completedCheckpoints.length;
+      const totalCount = MISSION_CHECKPOINTS.length;
+      const progEl = document.getElementById('hud-cp-progress');
+      const nextLabelEl = document.getElementById('hud-cp-next-label');
+      const intelBtn = document.getElementById('btn-mission-log');
+      const intelBadge = document.getElementById('intel-count-badge');
+
+      if (sim.running && intelBtn) {
+        intelBtn.classList.remove('hidden');
+        intelBadge.textContent = `${doneCount + missionState.exploredBodies.length}`;
+      } else if (intelBtn) {
+        intelBtn.classList.add('hidden');
+      }
+
+      if (progEl) progEl.textContent = `${doneCount}/${totalCount}`;
+      if (nextLabelEl) {
+        if (doneCount < totalCount) {
+          const nextCp = MISSION_CHECKPOINTS[doneCount];
+          nextLabelEl.textContent = `Next: ${nextCp.id}. ${nextCp.title}`;
+        } else {
+          nextLabelEl.textContent = `All ${totalCount} Flight Stages Complete — Explore SOIs!`;
+        }
+      }
+    }
+
+    function evaluateMissionCheckpoints(alt, speed) {
+      if (!sim.running) return;
+
+      if (!sim.landed && sim.currentSOI === 'EARTH' && alt > 80) {
+        triggerSequentialCheckpoint(1);
+      }
+      if (sim.currentSOI === 'EARTH' && alt > 12000) {
+        triggerSequentialCheckpoint(2);
+      }
+      if (sim.currentSOI === 'EARTH' && alt > CELESTIAL_BODIES.EARTH.atmoHeight) {
+        triggerSequentialCheckpoint(3);
+      }
+      if (sim.currentSOI === 'EARTH' && sim.periapsis > CELESTIAL_BODIES.EARTH.atmoHeight && sim.apoapsis > CELESTIAL_BODIES.EARTH.atmoHeight) {
+        triggerSequentialCheckpoint(4);
+      }
+      if ((sim.currentSOI === 'EARTH' && sim.apoapsis > 1500000) || sim.currentSOI !== 'EARTH') {
+        triggerSequentialCheckpoint(5);
+      }
+    }
+
+    function initCelestialSystem() {
+      BODY_IDS.forEach(id => {
+        const b = CELESTIAL_BODIES[id];
+        b.mu = G * b.mass;
+        b.children = [];
+        b.depth = 0;
+        b.angularVel = 0;
+        b.soiRadius = Infinity;
+      });
+
+      BODY_IDS.forEach(id => {
+        const b = CELESTIAL_BODIES[id];
+        if (b.parent && CELESTIAL_BODIES[b.parent]) {
+          const parent = CELESTIAL_BODIES[b.parent];
+          parent.children.push(id);
+          b.angularVel = Math.sqrt(parent.mu / Math.pow(b.orbitRadius, 3));
+          b.soiRadius = b.soiRadiusOverride || (b.orbitRadius * Math.pow(b.mass / parent.mass, 0.4));
+        }
+      });
+
+      BODY_IDS.forEach(id => {
+        let d = 0;
+        let curr = CELESTIAL_BODIES[id];
+        while (curr.parent && CELESTIAL_BODIES[curr.parent]) {
+          d++;
+          curr = CELESTIAL_BODIES[curr.parent];
+        }
+        CELESTIAL_BODIES[id].depth = d;
+      });
+    }
+
+    initCelestialSystem();
+
+    function getBodyState(bodyId, t) {
+      const body = CELESTIAL_BODIES[bodyId];
+      if (!body || !body.parent) {
+        return { x: 0, y: 0, vx: 0, vy: 0, relX: 0, relY: 0, relVx: 0, relVy: 0 };
+      }
+
+      const parentState = getBodyState(body.parent, t);
+      const theta = body.initialAngle + body.angularVel * t;
+      const relX = Math.cos(theta) * body.orbitRadius;
+      const relY = Math.sin(theta) * body.orbitRadius;
+      const relVx = -Math.sin(theta) * body.orbitRadius * body.angularVel;
+      const relVy = Math.cos(theta) * body.orbitRadius * body.angularVel;
+
+      return {
+        x: parentState.x + relX,
+        y: parentState.y + relY,
+        vx: parentState.vx + relVx,
+        vy: parentState.vy + relVy,
+        relX,
+        relY,
+        relVx,
+        relVy
+      };
+    }
+
+    const BODIES_BY_DEPTH_DESC = [...BODY_IDS].sort((a, b) => CELESTIAL_BODIES[b].depth - CELESTIAL_BODIES[a].depth);
+
+    function getCurrentSOI(px, py, t) {
+      for (let i = 0; i < BODIES_BY_DEPTH_DESC.length; i++) {
+        const id = BODIES_BY_DEPTH_DESC[i];
+        const body = CELESTIAL_BODIES[id];
+        if (!body.parent) return id;
+        const bState = getBodyState(id, t);
+        const dist = Math.hypot(px - bState.x, py - bState.y);
+        if (dist <= body.soiRadius) {
+          return id;
+        }
+      }
+      return ROOT_BODY_ID;
+    }
+
+    function getBodyInertialAcceleration(bodyId, t) {
+      const body = CELESTIAL_BODIES[bodyId];
+      if (!body || !body.parent) return { ax: 0, ay: 0 };
+      const parent = CELESTIAL_BODIES[body.parent];
+      const bState = getBodyState(bodyId, t);
+      const pState = getBodyState(body.parent, t);
+      const dx = bState.x - pState.x;
+      const dy = bState.y - pState.y;
+      const r = Math.max(1000, Math.hypot(dx, dy));
+      const aMag = parent.mu / (r * r);
+      const parentAccel = getBodyInertialAcceleration(body.parent, t);
+      return {
+        ax: parentAccel.ax - aMag * (dx / r),
+        ay: parentAccel.ay - aMag * (dy / r)
+      };
+    }
+
+    // =========================================================================
+    // 2. ROCKET PART DEFINITIONS (VAB CATALOG)
+    // =========================================================================
+    const PART_CATALOG = [
+      { id: 'pod', name: 'Deep-Space Probe Core', category: 'Command', desc: 'Autonomous reconnaissance satellite bus with high-gain telemetry dish & SAS gyro.', dryMass: 1.0, fuelMass: 0, thrust: 0, isp: 0, width: 28, height: 34, color: '#e2e8f0', defaultStage: 0 },
+      { id: 'fairing', name: 'Aerodynamic Fairing', category: 'Aero', desc: 'Reduces atmospheric drag by 55%. Jettison via staging in upper atmosphere.', dryMass: 0.4, fuelMass: 0, thrust: 0, isp: 0, width: 34, height: 44, color: '#f8fafc', defaultStage: 2 },
+      { id: 'tank_small', name: 'FL-T200 Small Tank', category: 'Fuel', desc: 'Compact liquid fuel & oxidizer tank for orbital capture & inclination burns.', dryMass: 0.25, fuelMass: 2.0, thrust: 0, isp: 0, width: 28, height: 30, color: '#cbd5e1', defaultStage: 0 },
+      { id: 'tank_med', name: 'FL-T800 Medium Tank', category: 'Fuel', desc: 'Standard orbital booster propellant tank.', dryMass: 0.8, fuelMass: 7.2, thrust: 0, isp: 0, width: 30, height: 54, color: '#e2e8f0', defaultStage: 0 },
+      { id: 'tank_large', name: 'Jumbo-64 Heavy Tank', category: 'Fuel', desc: 'High-capacity first-stage propellant tank for heavy liftoff.', dryMass: 2.2, fuelMass: 21.0, thrust: 0, isp: 0, width: 36, height: 78, color: '#f97316', defaultStage: 0 },
+      { id: 'engine_booster', name: 'RE-M3 "Mainsail" Engine', category: 'Engine', desc: 'High-thrust heavy lift engine for atmospheric ascent. (520 kN, Isp 295s)', dryMass: 1.8, fuelMass: 0, thrust: 520000, isp: 295, width: 32, height: 28, color: '#475569', defaultStage: 1 },
+      { id: 'engine_vac', name: 'LV-909 "Terrier" Vacuum', category: 'Engine', desc: 'High-efficiency vacuum engine for orbital & interplanetary burns. (140 kN, Isp 370s)', dryMass: 0.6, fuelMass: 0, thrust: 140000, isp: 370, width: 24, height: 22, color: '#64748b', defaultStage: 2 },
+      { id: 'engine_lander', name: 'LV-1R "Spark" Maneuver', category: 'Engine', desc: 'Lightweight precision engine for planetary SOI orbital capture burns. (45 kN, Isp 340s)', dryMass: 0.25, fuelMass: 0, thrust: 45000, isp: 340, width: 20, height: 18, color: '#94a3b8', defaultStage: 3 },
+      { id: 'decoupler', name: 'TR-18A Stack Decoupler', category: 'Structural', desc: 'Explosive bolts sever lower spent stages cleanly.', dryMass: 0.15, fuelMass: 0, thrust: 0, isp: 0, width: 30, height: 10, color: '#eab308', defaultStage: 2 },
+      { id: 'legs', name: 'Magnetometer & Solar Array', category: 'Utility', desc: 'Deployable science booms for measuring planetary gravity & atmospheres.', dryMass: 0.2, fuelMass: 0, thrust: 0, isp: 0, width: 34, height: 16, color: '#38bdf8', defaultStage: 0 }
+    ];
+
+    // =========================================================================
+    // 3. APPLICATION STATE
+    // =========================================================================
+    let currentMode = 'VAB';
+    let rocketAssembly = [];
+
+    let sim = {
+      running: false,
+      time: 0,
+      timeWarp: 1,
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      angle: 0,
+      angularVel: 0,
+      throttle: 0,
+      sasMode: 'MANUAL',
+      nextStage: 3,
+      maxStage: 3,
+      parts: [],
+      debris: [],
+      particles: [],
+      parachutesDeployed: false,
+      landed: true,
+      landedBody: HOME_BODY_ID,
+      landedNormalAngle: 0,
+      currentSOI: HOME_BODY_ID,
+      targetBody: 'NONE',
+      predictedPath: [],
+      coastConic: null,
+      thrustPredictedPath: [],
+      poweredConic: null,
+      impactPoint: null,
+      apoapsis: 0,
+      periapsis: 0,
+      maneuverNode: null,
+      flightZoom: 2.2,
+      mapZoom: 0.00018,
+      mapFocus: 'ROCKET',
+      mapPanX: 0,
+      mapPanY: 0
+    };
+
+    const keys = {};
+    let steerInput = 0;
+    let isDraggingMap = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let draggingNodeHandle = null;
+
+    // =========================================================================
+    // 4. INITIALIZATION & DYNAMIC UI POPULATION
+    // =========================================================================
+    function populateDynamicCelestialUI() {
+      const targetSelect = document.getElementById('target-select');
+      targetSelect.innerHTML = '<option value="NONE">No Target</option>';
+      BODY_IDS.forEach(id => {
+        const b = CELESTIAL_BODIES[id];
+        const opt = document.createElement('option');
+        opt.value = id;
+        const parentHint = b.parent && b.parent !== ROOT_BODY_ID ? ` (${CELESTIAL_BODIES[b.parent].name})` : '';
+        opt.textContent = `${b.icon} ${b.name}${parentHint}`;
+        targetSelect.appendChild(opt);
+      });
+
+      const focusContainer = document.getElementById('map-focus-buttons');
+      focusContainer.innerHTML = '';
+
+      const addFocusBtn = (focusKey, label) => {
+        const btn = document.createElement('button');
+        btn.className = 'px-2 py-0.5 rounded bg-slate-800 hover:bg-sky-600 text-[11px] text-slate-200 transition cursor-pointer';
+        btn.textContent = label;
+        btn.onclick = () => setMapFocus(focusKey);
+        focusContainer.appendChild(btn);
+      };
+
+      addFocusBtn('ROCKET', '🚀 Rocket');
+      BODY_IDS.forEach(id => {
+        const b = CELESTIAL_BODIES[id];
+        addFocusBtn(id, `${b.icon} ${b.name}`);
+      });
+    }
+
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      const colors = {
+        info: 'bg-slate-900/95 border-sky-500/50 text-sky-200',
+        success: 'bg-emerald-950/95 border-emerald-500/50 text-emerald-200',
+        warn: 'bg-amber-950/95 border-amber-500/50 text-amber-200',
+        danger: 'bg-rose-950/95 border-rose-500/50 text-rose-200'
+      };
+      el.className = `px-4 py-2 rounded-xl border text-xs font-semibold shadow-xl backdrop-blur-md transition-all duration-300 ${colors[type] || colors.info}`;
+      el.textContent = msg;
+      container.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-8px)';
+        setTimeout(() => el.remove(), 300);
+      }, 2800);
+    }
+
+    function switchMode(mode) {
+      if (mode === 'FLIGHT' && !sim.running) {
+        launchRocket();
+        return;
+      }
+      currentMode = mode;
+
+      const btnVab = document.getElementById('btn-mode-vab');
+      const btnFlight = document.getElementById('btn-mode-flight');
+      const btnMap = document.getElementById('btn-mode-map');
+
+      [btnVab, btnFlight, btnMap].forEach(b => {
+        b.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700 flex items-center gap-1.5';
+      });
+
+      if (mode === 'VAB') {
+        btnVab.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20';
+        document.getElementById('vab-view').classList.remove('hidden');
+        document.getElementById('sim-view').classList.add('hidden');
+        renderVABCanvas();
+      } else {
+        document.getElementById('vab-view').classList.add('hidden');
+        document.getElementById('sim-view').classList.remove('hidden');
+        if (mode === 'FLIGHT') {
+          btnFlight.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20';
+          document.getElementById('map-toolbar').classList.add('hidden');
+        } else if (mode === 'MAP') {
+          btnMap.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition bg-sky-500 text-slate-950 shadow-md shadow-sky-500/20 flex items-center gap-1.5';
+          document.getElementById('map-toolbar').classList.remove('hidden');
+          computeTrajectoryPrediction();
+        }
+      }
+    }
+
+    function toggleMapMode() {
+      if (!sim.running) {
+        showToast('Launch a rocket first to view orbital trajectories!', 'warn');
+        return;
+      }
+      if (currentMode === 'MAP') switchMode('FLIGHT');
+      else switchMode('MAP');
+    }
+
+    // =========================================================================
+    // 5. VEHICLE ASSEMBLY BUILDING (VAB) LOGIC
+    // =========================================================================
+    function initVAB() {
+      const paletteEl = document.getElementById('part-palette');
+      paletteEl.innerHTML = '';
+
+      PART_CATALOG.forEach(part => {
+        const card = document.createElement('div');
+        card.className = 'p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 hover:border-sky-500/50 cursor-pointer transition flex flex-col justify-between';
+        card.onclick = () => addPartToRocket(part.id);
+
+        let specBadge = `${part.dryMass}t`;
+        if (part.fuelMass > 0) specBadge = `${part.dryMass + part.fuelMass}t (${part.fuelMass}t fuel)`;
+        if (part.thrust > 0) specBadge = `${(part.thrust / 1000).toFixed(0)}kN | Isp ${part.isp}s`;
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between gap-1 mb-1">
+            <span class="text-xs font-bold text-slate-100 truncate">${part.name}</span>
+            <span class="text-[10px] font-mono-tech px-1.5 py-0.5 rounded bg-slate-950 text-sky-400 shrink-0">${part.category}</span>
+          </div>
+          <p class="text-[11px] text-slate-400 line-clamp-2 mb-1.5">${part.desc}</p>
+          <div class="text-[10px] font-mono-tech text-amber-300/90">${specBadge}</div>
+        `;
+        paletteEl.appendChild(card);
+      });
+
+      loadPresetMoonRocket();
+    }
+
+    function addPartToRocket(partId) {
+      const template = PART_CATALOG.find(p => p.id === partId);
+      if (!template) return;
+
+      const instance = {
+        ...template,
+        uid: Math.random().toString(36).substring(2, 9),
+        stage: template.defaultStage || 1
+      };
+
+      if (partId === 'pod' || partId === 'fairing') rocketAssembly.unshift(instance);
+      else rocketAssembly.push(instance);
+
+      autoStageRocket();
+    }
+
+    function removePartFromRocket(uid) {
+      rocketAssembly = rocketAssembly.filter(p => p.uid !== uid);
+      autoStageRocket();
+    }
+
+    function movePart(uid, dir) {
+      const idx = rocketAssembly.findIndex(p => p.uid === uid);
+      if (idx === -1) return;
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= rocketAssembly.length) return;
+      const temp = rocketAssembly[idx];
+      rocketAssembly[idx] = rocketAssembly[newIdx];
+      rocketAssembly[newIdx] = temp;
+      updateVABUI();
+    }
+
+    function changePartStage(uid, delta) {
+      const part = rocketAssembly.find(p => p.uid === uid);
+      if (!part) return;
+      part.stage = Math.max(0, Math.min(8, part.stage + delta));
+      updateVABUI();
+    }
+
+    function clearRocket() {
+      rocketAssembly = [];
+      updateVABUI();
+    }
+
+    function loadPresetMoonRocket() {
+      const presetIds = [
+        'pod', 'legs', 'tank_small', 'engine_lander',
+        'decoupler', 'fairing', 'tank_med', 'tank_small', 'engine_vac',
+        'decoupler', 'tank_large', 'tank_med', 'engine_booster'
+      ];
+
+      rocketAssembly = presetIds.map(id => {
+        const tpl = PART_CATALOG.find(p => p.id === id);
+        return { ...tpl, uid: Math.random().toString(36).substring(2, 9), stage: 0 };
+      });
+
+      autoStageRocket();
+      showToast('Loaded "Helios-V" 3-Stage Interplanetary Reconnaissance Probe!', 'success');
+    }
+
+    function autoStageRocket() {
+      if (rocketAssembly.length === 0) {
+        updateVABUI();
+        return;
+      }
+
+      let currentStage = 0;
+      for (let i = 0; i < rocketAssembly.length; i++) {
+        const p = rocketAssembly[i];
+        if (p.id === 'decoupler') {
+          currentStage++;
+          p.stage = currentStage;
+          for (let j = i - 1; j >= 0; j--) {
+            if (rocketAssembly[j].id === 'decoupler') break;
+            if (rocketAssembly[j].category === 'Engine') rocketAssembly[j].stage = currentStage;
+          }
+          currentStage++;
+        } else {
+          p.stage = currentStage;
+        }
+      }
+
+      updateVABUI();
+    }
+
+    function getIsolatedSections(partsList) {
+      const sections = [];
+      let currentSection = [];
+      for (let i = 0; i < partsList.length; i++) {
+        const p = partsList[i];
+        if (p.id === 'decoupler') {
+          if (currentSection.length > 0) sections.push(currentSection);
+          currentSection = [p];
+        } else {
+          currentSection.push(p);
+        }
+      }
+      if (currentSection.length > 0) sections.push(currentSection);
+      return sections;
+    }
+
+    function computeRocketEngineeringStats(partsList) {
+      if (!partsList || partsList.length === 0) {
+        return { wetMass: 0, dryMass: 0, twr: 0, totalDv: 0, stageDvs: [] };
+      }
+
+      let wetMass = 0;
+      let dryMass = 0;
+      partsList.forEach(p => {
+        const fuel = p.currentFuel !== undefined ? p.currentFuel : p.fuelMass;
+        wetMass += (p.dryMass + fuel) * 1000;
+        dryMass += p.dryMass * 1000;
+      });
+
+      const sections = getIsolatedSections(partsList);
+      let totalDv = 0;
+      let liftoffThrust = 0;
+      const stageDvs = [];
+
+      for (let secIdx = sections.length - 1; secIdx >= 0; secIdx--) {
+        const activeStackParts = sections.slice(0, secIdx + 1).flat();
+        const currentSection = sections[secIdx];
+
+        const sectionEngines = currentSection.filter(p => p.thrust > 0);
+        const sectionThrust = sectionEngines.reduce((sum, e) => sum + e.thrust, 0);
+        if (secIdx === sections.length - 1) liftoffThrust = sectionThrust;
+
+        let avgIsp = 0;
+        if (sectionThrust > 0) {
+          const massFlow = sectionEngines.reduce((sum, e) => sum + e.thrust / (e.isp * g0), 0);
+          avgIsp = sectionThrust / (massFlow * g0);
+        }
+
+        const m0 = activeStackParts.reduce(
+          (sum, p) => sum + (p.dryMass + (p.currentFuel !== undefined ? p.currentFuel : p.fuelMass)) * 1000,
+          0
+        );
+        const fuelBurned = currentSection.reduce(
+          (sum, p) => sum + (p.currentFuel !== undefined ? p.currentFuel : p.fuelMass) * 1000,
+          0
+        );
+        const mf = Math.max(1, m0 - fuelBurned);
+
+        let dv = 0;
+        if (sectionThrust > 0 && fuelBurned > 0 && m0 > mf) {
+          dv = avgIsp * g0 * Math.log(m0 / mf);
+        }
+        totalDv += dv;
+        stageDvs.push({ section: secIdx, dv, thrust: sectionThrust, isp: avgIsp });
+      }
+
+      const seaLevelWeight = wetMass * g0;
+      const twr = seaLevelWeight > 0 ? liftoffThrust / seaLevelWeight : 0;
+
+      return { wetMass: wetMass / 1000, dryMass: dryMass / 1000, twr, totalDv, stageDvs };
+    }
+
+    function updateVABUI() {
+      const stats = computeRocketEngineeringStats(rocketAssembly);
+      document.getElementById('stat-wet-mass').textContent = `${stats.wetMass.toFixed(2)} t`;
+      document.getElementById('stat-dry-mass').textContent = `${stats.dryMass.toFixed(2)} t`;
+      document.getElementById('stat-total-dv').textContent = `${Math.round(stats.totalDv).toLocaleString()} m/s`;
+      document.getElementById('stat-twr').textContent = stats.twr.toFixed(2);
+
+      const twrBadge = document.getElementById('vab-twr-badge');
+      twrBadge.textContent = `TWR: ${stats.twr.toFixed(2)}`;
+      if (stats.twr >= 1.2) {
+        twrBadge.className = 'text-[11px] font-mono-tech px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+      } else if (stats.twr >= 1.0) {
+        twrBadge.className = 'text-[11px] font-mono-tech px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30';
+      } else {
+        twrBadge.className = 'text-[11px] font-mono-tech px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30';
+      }
+
+      const listEl = document.getElementById('vab-stack-list');
+      listEl.innerHTML = '';
+
+      if (rocketAssembly.length === 0) {
+        listEl.innerHTML = `<div class="text-xs text-slate-500 text-center py-8">No parts assembled yet.<br>Select parts from the catalog or load the preset rocket.</div>`;
+        renderVABCanvas();
+        return;
+      }
+
+      const maxStage = Math.max(...rocketAssembly.map(p => p.stage), 0);
+      for (let s = maxStage; s >= 0; s--) {
+        const stageParts = rocketAssembly.filter(p => p.stage === s);
+        if (stageParts.length === 0) continue;
+
+        const stageHeader = document.createElement('div');
+        stageHeader.className = 'text-[10px] font-mono-tech font-bold uppercase tracking-wider text-sky-400 pt-1.5 pb-0.5 px-1 flex justify-between';
+        stageHeader.innerHTML = `
+          <span>STAGE ${s} ${s === maxStage ? '(LIFTOFF)' : s === 0 ? '(PROBE)' : ''}</span>
+          <span class="text-slate-500">${stageParts.length} part${stageParts.length > 1 ? 's' : ''}</span>
+        `;
+        listEl.appendChild(stageHeader);
+
+        stageParts.forEach(part => {
+          const row = document.createElement('div');
+          row.className = 'p-2 rounded-lg bg-slate-800/90 border border-slate-700/80 flex items-center justify-between gap-2 text-xs';
+          row.innerHTML = `
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono-tech text-[10px] font-bold shrink-0">
+                S${part.stage}
+              </span>
+              <span class="truncate font-medium text-slate-200">${part.name}</span>
+            </div>
+            <div class="flex items-center gap-1 shrink-0">
+              <button onclick="changePartStage('${part.uid}', -1)" title="Earlier Stage Number" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-700 text-slate-400 text-[10px]">S-</button>
+              <button onclick="changePartStage('${part.uid}', 1)" title="Later Stage Number" class="px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-700 text-slate-400 text-[10px]">S+</button>
+              <button onclick="movePart('${part.uid}', -1)" title="Move Up" class="px-1 py-0.5 rounded bg-slate-900 hover:bg-slate-700 text-slate-300 text-[10px]">▲</button>
+              <button onclick="movePart('${part.uid}', 1)" title="Move Down" class="px-1 py-0.5 rounded bg-slate-900 hover:bg-slate-700 text-slate-300 text-[10px]">▼</button>
+              <button onclick="removePartFromRocket('${part.uid}')" title="Remove" class="px-1.5 py-0.5 rounded bg-rose-950 hover:bg-rose-800 text-rose-300 text-[10px]">✕</button>
+            </div>
+          `;
+          listEl.appendChild(row);
+        });
+      }
+
+      renderVABCanvas();
+    }
+
+    function renderVABCanvas() {
+      const canvas = document.getElementById('vab-canvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (rocketAssembly.length === 0) return;
+
+      const totalHeight = rocketAssembly.reduce((sum, p) => sum + p.height, 0);
+      const maxAvailH = canvas.height * 0.72;
+      const scale = Math.min(1.6, Math.max(0.55, maxAvailH / Math.max(1, totalHeight)));
+
+      const cx = canvas.width / 2;
+      let curY = canvas.height / 2 - (totalHeight * scale) / 2;
+
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(cx, 24);
+      ctx.lineTo(cx, canvas.height - 24);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      rocketAssembly.forEach(part => {
+        const w = part.width * scale;
+        const h = part.height * scale;
+        drawRocketPartGraphic(ctx, part, cx, curY + h / 2, w, h, false);
+
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.fillRect(cx + w / 2 + 12, curY + h / 2 - 9, 32, 18);
+        ctx.strokeStyle = 'rgba(251, 191, 36, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(cx + w / 2 + 12, curY + h / 2 - 9, 32, 18);
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 10px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`S${part.stage}`, cx + w / 2 + 28, curY + h / 2 + 3);
+
+        curY += h;
+      });
+    }
+
+    function drawRocketPartGraphic(ctx, part, cx, cy, w, h, isFiring) {
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      if (part.id === 'pod') {
+        ctx.fillStyle = '#e2e8f0';
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-w * 0.25, -h / 2);
+        ctx.lineTo(w * 0.25, -h / 2);
+        ctx.lineTo(w * 0.5, h / 2);
+        ctx.lineTo(-w * 0.5, h / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(-w * 0.25, -h / 2 - 3, w * 0.5, 4);
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(0, 0, w * 0.16, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (part.id === 'fairing') {
+        ctx.fillStyle = '#f8fafc';
+        ctx.strokeStyle = '#64748b';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, -h / 2);
+        ctx.quadraticCurveTo(w * 0.55, -h * 0.1, w * 0.5, h / 2);
+        ctx.lineTo(-w * 0.5, h / 2);
+        ctx.quadraticCurveTo(-w * 0.55, -h * 0.1, 0, -h / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.beginPath();
+        ctx.moveTo(0, -h / 2);
+        ctx.lineTo(0, h / 2);
+        ctx.stroke();
+      } else if (part.category === 'Fuel') {
+        ctx.fillStyle = part.color;
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(-w / 2, -h / 2, w, h);
+        ctx.strokeRect(-w / 2, -h / 2, w, h);
+
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(-w / 2, -h / 2, w, h * 0.12);
+        ctx.fillRect(-w / 2, h / 2 - h * 0.12, w, h * 0.12);
+        ctx.fillRect(-w * 0.12, -h / 2, w * 0.24, h);
+      } else if (part.category === 'Engine') {
+        ctx.fillStyle = '#334155';
+        ctx.fillRect(-w * 0.3, -h / 2, w * 0.6, h * 0.3);
+
+        ctx.fillStyle = part.color;
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(-w * 0.25, -h * 0.2);
+        ctx.lineTo(w * 0.25, -h * 0.2);
+        ctx.lineTo(w * 0.48, h / 2);
+        ctx.lineTo(-w * 0.48, h / 2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Engine flame effect (smoke/exhaust particle plume remains removed)
+        if (isFiring) {
+          const pulse = Math.sin(performance.now() * 0.045) * 0.14 + 0.92;
+          const flameH = h * (0.95 + sim.throttle * 1.45) * pulse;
+          const grad = ctx.createLinearGradient(0, h / 2, 0, h / 2 + flameH);
+          grad.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
+          grad.addColorStop(0.22, 'rgba(253, 224, 71, 0.95)');
+          grad.addColorStop(0.58, 'rgba(249, 115, 22, 0.78)');
+          grad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.moveTo(-w * 0.36, h / 2);
+          ctx.quadraticCurveTo(-w * 0.22, h / 2 + flameH * 0.55, 0, h / 2 + flameH);
+          ctx.quadraticCurveTo(w * 0.22, h / 2 + flameH * 0.55, w * 0.36, h / 2);
+          ctx.closePath();
+          ctx.fill();
+
+          // Inner Mach diamond core
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+          ctx.beginPath();
+          ctx.moveTo(-w * 0.18, h / 2);
+          ctx.lineTo(0, h / 2 + flameH * 0.38);
+          ctx.lineTo(w * 0.18, h / 2);
+          ctx.closePath();
+          ctx.fill();
+        }
+      } else if (part.id === 'decoupler') {
+        ctx.fillStyle = '#eab308';
+        ctx.strokeStyle = '#713f12';
+        ctx.lineWidth = 1.2;
+        ctx.fillRect(-w / 2, -h / 2, w, h);
+        ctx.strokeRect(-w / 2, -h / 2, w, h);
+        ctx.fillStyle = '#1e293b';
+        for (let sx = -w / 2 + 4; sx < w / 2 - 4; sx += 8) {
+          ctx.fillRect(sx, -h / 2, 4, h);
+        }
+      } else if (part.id === 'legs') {
+        ctx.fillStyle = '#475569';
+        ctx.fillRect(-w * 0.42, -h / 2, w * 0.84, h);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(-w * 0.42, 0);
+        ctx.lineTo(-w * 0.72, h * 1.3);
+        ctx.moveTo(w * 0.42, 0);
+        ctx.lineTo(w * 0.72, h * 1.3);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    }
+
+    // =========================================================================
+    // 6. LAUNCH & FLIGHT INITIALIZATION
+    // =========================================================================
+    function launchRocket() {
+      if (rocketAssembly.length === 0) {
+        showToast('Assemble a rocket first before launching!', 'danger');
+        return;
+      }
+
+      const hasPod = rocketAssembly.some(p => p.id === 'pod');
+      if (!hasPod) {
+        showToast('Your rocket needs a Probe Core / Command Pod to control flight!', 'warn');
+        return;
+      }
+
+      sim.parts = rocketAssembly.map(p => ({
+        ...p,
+        currentFuel: p.fuelMass,
+        activated: false
+      }));
+
+      sim.running = true;
+      sim.time = 0;
+      sim.timeWarp = 1;
+      setTimeWarp(1);
+
+      const homeBody = CELESTIAL_BODIES[HOME_BODY_ID];
+      const homeState = getBodyState(HOME_BODY_ID, 0);
+      const totalHeight = sim.parts.reduce((sum, p) => sum + p.height, 0) * 0.35;
+
+      sim.x = homeState.x;
+      sim.y = homeState.y + homeBody.radius + totalHeight / 2;
+      sim.vx = homeState.vx;
+      sim.vy = homeState.vy;
+      sim.angle = 0;
+      sim.angularVel = 0;
+      sim.throttle = 0;
+      
+      const throttleSlider = document.getElementById('throttle-slider');
+      if (throttleSlider) throttleSlider.value = 0;
+      const throttlePct = document.getElementById('throttle-pct');
+      if (throttlePct) throttlePct.textContent = '0%';
+
+      sim.maxStage = Math.max(...sim.parts.map(p => p.stage), 0);
+      sim.nextStage = sim.maxStage;
+      sim.debris = [];
+      sim.particles = [];
+      sim.parachutesDeployed = false;
+      sim.landed = true;
+      sim.landedBody = HOME_BODY_ID;
+      sim.landedNormalAngle = 0;
+      sim.currentSOI = HOME_BODY_ID;
+      sim.maneuverNode = null;
+      sim.flightZoom = 2.2;
+      sim.mapFocus = 'ROCKET';
+      sim.mapPanX = 0;
+      sim.mapPanY = 0;
+
+      resetMissionProgress();
+      updateManeuverUI();
+      switchMode('FLIGHT');
+      computeTrajectoryPrediction();
+      showToast(`On ${homeBody.name} Launchpad! Throttle up (Z) & press SPACE to ignite Stage ${sim.nextStage}.`, 'success');
+    }
+
+    // =========================================================================
+    // 7. MULTI-BODY PATCHED CONIC ASTRODYNAMICS & RK4 / KEPLER PHYSICS
+    // =========================================================================
+    function computeGravityAcceleration(px, py, t, soiOverride) {
+      const soiId = soiOverride || getCurrentSOI(px, py, t);
+      const soiBody = CELESTIAL_BODIES[soiId];
+      const bState = getBodyState(soiId, t);
+
+      const dx = px - bState.x;
+      const dy = py - bState.y;
+      const r2 = dx * dx + dy * dy;
+      const r = Math.max(1000, Math.sqrt(r2));
+
+      const aMag = soiBody.mu / (r * r);
+      const inertialAccel = getBodyInertialAcceleration(soiId, t);
+
+      const ax = inertialAccel.ax - aMag * (dx / r);
+      const ay = inertialAccel.ay - aMag * (dy / r);
+
+      return { ax, ay, r, bState, soi: soiId };
+    }
+
+    function propagateKeplerStep(relX, relY, relVx, relVy, mu, dt) {
+      const r0 = Math.hypot(relX, relY);
+      const v0sq = relVx * relVx + relVy * relVy;
+      const alpha = 2 / r0 - v0sq / mu;
+      const vr0 = (relX * relVx + relY * relVy) / r0;
+      const sqrtMu = Math.sqrt(mu);
+
+      let chi = sqrtMu * Math.abs(alpha) * dt;
+      if (alpha > 1e-12) chi = sqrtMu * dt * alpha;
+
+      for (let iter = 0; iter < 8; iter++) {
+        const z = alpha * chi * chi;
+        let C, S;
+        if (z > 1e-6) {
+          const sz = Math.sqrt(z);
+          C = (1 - Math.cos(sz)) / z;
+          S = (sz - Math.sin(sz)) / (sz * sz * sz);
+        } else if (z < -1e-6) {
+          const sz = Math.sqrt(-z);
+          C = (Math.cosh(sz) - 1) / (-z);
+          S = (Math.sinh(sz) - sz) / (sz * sz * sz);
+        } else {
+          C = 0.5 - z / 24 + (z * z) / 720;
+          S = 1 / 6 - z / 120 + (z * z) / 5040;
+        }
+
+        const f = (r0 * vr0 / sqrtMu) * chi * chi * C + (1 - alpha * r0) * chi * chi * chi * S + r0 * chi - sqrtMu * dt;
+        const df = (r0 * vr0 / sqrtMu) * chi * (1 - alpha * chi * chi * S) + (1 - alpha * r0) * chi * chi * C + r0;
+        const dChi = f / df;
+        chi -= dChi;
+        if (Math.abs(dChi) < 1e-9) break;
+      }
+
+      const z = alpha * chi * chi;
+      let C, S;
+      if (z > 1e-6) {
+        const sz = Math.sqrt(z);
+        C = (1 - Math.cos(sz)) / z;
+        S = (sz - Math.sin(sz)) / (sz * sz * sz);
+      } else if (z < -1e-6) {
+        const sz = Math.sqrt(-z);
+        C = (Math.cosh(sz) - 1) / (-z);
+        S = (Math.sinh(sz) - sz) / (sz * sz * sz);
+      } else {
+        C = 0.5 - z / 24 + (z * z) / 720;
+        S = 1 / 6 - z / 120 + (z * z) / 5040;
+      }
+
+      const f = 1 - (chi * chi / r0) * C;
+      const g = dt - (1 / sqrtMu) * chi * chi * chi * S;
+
+      const newRelX = f * relX + g * relVx;
+      const newRelY = f * relY + g * relVy;
+      const r1 = Math.hypot(newRelX, newRelY);
+
+      const fdot = (sqrtMu / (r1 * r0)) * (alpha * chi * chi * chi * S - chi);
+      const gdot = 1 - (chi * chi / r1) * C;
+
+      const newRelVx = fdot * relX + gdot * relVx;
+      const newRelVy = fdot * relY + gdot * relVy;
+
+      return { relX: newRelX, relY: newRelY, relVx: newRelVx, relVy: newRelVy };
+    }
+
+    function stepRK4(px, py, vx, vy, t, dt, soiId, nonGravAx, nonGravAy) {
+      const accelAt = (x, y, time) => {
+        const g = computeGravityAcceleration(x, y, time, soiId);
+        return { ax: g.ax + nonGravAx, ay: g.ay + nonGravAy };
+      };
+
+      const k1 = accelAt(px, py, t);
+      const k2 = accelAt(px + 0.5 * dt * vx, py + 0.5 * dt * vy, t + 0.5 * dt);
+      const k3 = accelAt(px + 0.5 * dt * (vx + 0.5 * dt * k1.ax), py + 0.5 * dt * (vy + 0.5 * dt * k1.ay), t + 0.5 * dt);
+      const k4 = accelAt(px + dt * (vx + dt * k2.ax), py + dt * (vy + dt * k2.ay), t + dt);
+
+      const newPx = px + (dt / 6) * (vx + 2 * (vx + 0.5 * dt * k1.ax) + 2 * (vx + 0.5 * dt * k2.ax) + (vx + dt * k3.ax));
+      const newPy = py + (dt / 6) * (vy + 2 * (vy + 0.5 * dt * k1.ay) + 2 * (vy + 0.5 * dt * k2.ay) + (vy + dt * k3.ay));
+      const newVx = vx + (dt / 6) * (k1.ax + 2 * k2.ax + 2 * k3.ax + k4.ax);
+      const newVy = vy + (dt / 6) * (k1.ay + 2 * k2.ay + 2 * k3.ay + k4.ay);
+
+      return { px: newPx, py: newPy, vx: newVx, vy: newVy };
+    }
+
+    function getActivePropulsionGroups() {
+      const sections = getIsolatedSections(sim.parts);
+      const groups = [];
+      sections.forEach(sec => {
+        const engines = sec.filter(p => p.category === 'Engine' && p.activated === true && p.thrust > 0);
+        const tanks = sec.filter(p => p.fuelMass > 0 && p.currentFuel > 0.0001);
+        const fuelKg = tanks.reduce((sum, t) => sum + t.currentFuel * 1000, 0);
+        if (engines.length > 0) groups.push({ engines, tanks, fuelKg });
+      });
+      return groups;
+    }
+
+    function stepPhysics(dt) {
+      if (!sim.running || missionState.isPausedByModal) return;
+
+      const subSteps = sim.timeWarp >= 5000 ? 48 : (sim.timeWarp >= 1000 ? 32 : (sim.timeWarp >= 100 ? 16 : (sim.throttle > 0 && sim.timeWarp > 1 ? 16 : 8)));
+      const subDt = (dt * sim.timeWarp) / subSteps;
+
+      for (let step = 0; step < subSteps; step++) {
+        const prevTime = sim.time;
+        sim.time += subDt;
+
+        let totalMassKg = 0;
+        sim.parts.forEach(p => { totalMassKg += (p.dryMass + p.currentFuel) * 1000; });
+
+        let thrustN = 0;
+        if (sim.throttle > 0) {
+          const propGroups = getActivePropulsionGroups();
+          propGroups.forEach(group => {
+            if (group.fuelKg > 0.01) {
+              let groupThrust = 0;
+              let groupMassFlow = 0;
+              group.engines.forEach(eng => {
+                const engThrust = eng.thrust * sim.throttle;
+                groupThrust += engThrust;
+                groupMassFlow += engThrust / (eng.isp * g0);
+              });
+
+              const fuelUsedKg = Math.min(group.fuelKg, groupMassFlow * subDt);
+              const burnRatio = groupMassFlow * subDt > 0 ? fuelUsedKg / (groupMassFlow * subDt) : 0;
+              thrustN += groupThrust * burnRatio;
+
+              const totalSectionTankCapacity = group.tanks.reduce((sum, t) => sum + t.fuelMass, 0);
+              if (totalSectionTankCapacity > 0) {
+                group.tanks.forEach(tank => {
+                  const proportion = tank.fuelMass / totalSectionTankCapacity;
+                  const tankDrain = (fuelUsedKg * proportion) / 1000;
+                  tank.currentFuel = Math.max(0, tank.currentFuel - tankDrain);
+                });
+              }
+            }
+          });
+        }
+
+        const rocketHalfH = sim.parts.reduce((s, p) => s + p.height, 0) * 0.35 * 0.5;
+
+        if (sim.landed && sim.landedBody) {
+          const lBody = CELESTIAL_BODIES[sim.landedBody];
+          const lState = getBodyState(sim.landedBody, sim.time);
+          const nx = Math.sin(sim.landedNormalAngle);
+          const ny = Math.cos(sim.landedNormalAngle);
+          const localSurfaceG = lBody.mu / (lBody.radius * lBody.radius);
+          const dirX = Math.sin(sim.angle);
+          const dirY = Math.cos(sim.angle);
+          const radialThrustAccel = ((thrustN * (dirX * nx + dirY * ny)) / Math.max(1, totalMassKg));
+
+          if (radialThrustAccel <= localSurfaceG) {
+            sim.x = lState.x + nx * (lBody.radius + rocketHalfH);
+            sim.y = lState.y + ny * (lBody.radius + rocketHalfH);
+            sim.vx = lState.vx;
+            sim.vy = lState.vy;
+            sim.currentSOI = sim.landedBody;
+            continue;
+          } else {
+            sim.landed = false;
+            sim.landedBody = null;
+          }
+        }
+
+        const prevSOI = sim.currentSOI;
+        const activeSOI = getCurrentSOI(sim.x, sim.y, prevTime);
+        sim.currentSOI = activeSOI;
+        const soiBody = CELESTIAL_BODIES[activeSOI];
+        const bStatePrev = getBodyState(activeSOI, prevTime);
+
+        if (!sim.landed) {
+          const turnRate = 1.65;
+          let manualSteer = steerInput;
+          if (keys['ArrowLeft'] || keys['KeyA']) manualSteer -= 1;
+          if (keys['ArrowRight'] || keys['KeyD']) manualSteer += 1;
+
+          if (manualSteer !== 0) {
+            sim.sasMode = 'MANUAL';
+            updateSASButtons();
+            sim.angle += manualSteer * turnRate * subDt;
+          } else if (sim.sasMode !== 'MANUAL') {
+            const relVx = sim.vx - bStatePrev.vx;
+            const relVy = sim.vy - bStatePrev.vy;
+            const speed = Math.hypot(relVx, relVy);
+            let targetAngle = sim.angle;
+
+            if (sim.sasMode === 'PROGRADE' && speed > 1) {
+              targetAngle = Math.atan2(relVx, relVy);
+            } else if (sim.sasMode === 'RETROGRADE' && speed > 1) {
+              targetAngle = Math.atan2(-relVx, -relVy);
+            } else if (sim.sasMode === 'NODE' && sim.maneuverNode) {
+              const burnVec = getManeuverWorldBurnVector();
+              if (burnVec && Math.hypot(burnVec.dvx, burnVec.dvy) > 0.1) {
+                targetAngle = Math.atan2(burnVec.dvx, burnVec.dvy);
+              }
+            }
+
+            let diff = targetAngle - sim.angle;
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            sim.angle += Math.max(-turnRate * subDt, Math.min(turnRate * subDt, diff * 5));
+          }
+        }
+
+        if (prevSOI !== activeSOI) {
+          if (sim.timeWarp > 1) setTimeWarp(1);
+          triggerPlanetSOIExploration(activeSOI);
+          break;
+        }
+
+        const rLocalPrev = Math.hypot(sim.x - bStatePrev.x, sim.y - bStatePrev.y);
+        const alt = rLocalPrev - soiBody.radius;
+        const inAtmosphere = soiBody.atmoHeight > 0 && alt < soiBody.atmoHeight && alt > 0;
+
+        if (thrustN === 0 && !inAtmosphere) {
+          const relX0 = sim.x - bStatePrev.x;
+          const relY0 = sim.y - bStatePrev.y;
+          const relVx0 = sim.vx - bStatePrev.vx;
+          const relVy0 = sim.vy - bStatePrev.vy;
+
+          const kep = propagateKeplerStep(relX0, relY0, relVx0, relVy0, soiBody.mu, subDt);
+          const bStateNext = getBodyState(activeSOI, sim.time);
+
+          sim.x = bStateNext.x + kep.relX;
+          sim.y = bStateNext.y + kep.relY;
+          sim.vx = bStateNext.vx + kep.relVx;
+          sim.vy = bStateNext.vy + kep.relVy;
+        } else {
+          const dirX = Math.sin(sim.angle);
+          const dirY = Math.cos(sim.angle);
+          let nonGravAx = (thrustN * dirX) / totalMassKg;
+          let nonGravAy = (thrustN * dirY) / totalMassKg;
+
+          if (inAtmosphere) {
+            const atmoScaleH = soiBody.atmoHeight / 9.3;
+            const surfaceDensity = soiBody.id === 'VENUS' ? 6.5 : (soiBody.id === 'MARS' ? 0.08 : 1.225);
+            const rho = surfaceDensity * Math.exp(-alt / atmoScaleH);
+            const relVx = sim.vx - bStatePrev.vx;
+            const relVy = sim.vy - bStatePrev.vy;
+            const v = Math.hypot(relVx, relVy);
+            if (v > 0.1) {
+              const hasFairing = sim.parts.some(p => p.id === 'fairing');
+              let cdA = hasFairing ? 1.8 : 3.6;
+              if (sim.parachutesDeployed) cdA += 48.0;
+              const dragForce = 0.5 * rho * v * v * cdA;
+              nonGravAx -= (dragForce * (relVx / v)) / totalMassKg;
+              nonGravAy -= (dragForce * (relVy / v)) / totalMassKg;
+            }
+          }
+
+          const rk = stepRK4(sim.x, sim.y, sim.vx, sim.vy, prevTime, subDt, activeSOI, nonGravAx, nonGravAy);
+          sim.x = rk.px;
+          sim.y = rk.py;
+          sim.vx = rk.vx;
+          sim.vy = rk.vy;
+        }
+
+        const postSOI = getCurrentSOI(sim.x, sim.y, sim.time);
+        sim.currentSOI = postSOI;
+        const postBody = CELESTIAL_BODIES[postSOI];
+        const postBState = getBodyState(postSOI, sim.time);
+        const dxPost = sim.x - postBState.x;
+        const dyPost = sim.y - postBState.y;
+        const newR = Math.hypot(dxPost, dyPost);
+
+        if (newR <= postBody.radius + rocketHalfH) {
+          const relVx = sim.vx - postBState.vx;
+          const relVy = sim.vy - postBState.vy;
+          const impactSpeed = Math.hypot(relVx, relVy);
+          const nx = dxPost / Math.max(1, newR);
+          const ny = dyPost / Math.max(1, newR);
+
+          sim.x = postBState.x + nx * (postBody.radius + rocketHalfH);
+          sim.y = postBState.y + ny * (postBody.radius + rocketHalfH);
+          sim.vx = postBState.vx;
+          sim.vy = postBState.vy;
+          sim.landedNormalAngle = Math.atan2(nx, ny);
+
+          if (!sim.landed) {
+            if (postBody.type === 'star') {
+              showToast(`☀️ Probe vaporized in the Sun's photosphere!`, 'danger');
+            } else {
+              showToast(`⚠️ Surface contact on ${postBody.name} (${impactSpeed.toFixed(1)} m/s)! Keep altitude above surface for orbital reconnaissance.`, 'warn');
+            }
+          }
+          sim.landed = true;
+          sim.landedBody = postSOI;
+          if (sim.timeWarp > 1) setTimeWarp(1);
+        } else {
+          sim.landed = false;
+          sim.landedBody = null;
+        }
+
+        // Update debris inside substep loop for consistent trajectories
+        for (let i = 0; i < sim.debris.length; i++) {
+          const d = sim.debris[i];
+          const g = computeGravityAcceleration(d.x, d.y, sim.time);
+          d.vx += g.ax * subDt;
+          d.vy += g.ay * subDt;
+          d.x += d.vx * subDt;
+          d.y += d.vy * subDt;
+          d.angle += d.angVel * subDt;
+        }
+      }
+    }
+
+    // =========================================================================
+    // 8. UNIVERSAL PATCHED CONIC TRAJECTORY PREDICTION & MANEUVER NODES
+    // =========================================================================
+    function computeKeplerTimeBetweenTrueAnomalies(nu0, nu1, ecc, a, mu, dir) {
+      if (ecc < 0.9999 && a > 0) {
+        const n = Math.sqrt(mu / Math.pow(a, 3));
+        const toE = (nu) => {
+          const s = Math.sqrt(1 - ecc * ecc) * Math.sin(nu);
+          const c = ecc + Math.cos(nu);
+          return Math.atan2(s, c);
+        };
+        const E0 = toE(nu0);
+        const E1 = toE(nu1);
+        const M0 = E0 - ecc * Math.sin(E0);
+        const M1 = E1 - ecc * Math.sin(E1);
+        let dM = dir > 0 ? (M1 - M0) : (M0 - M1);
+        while (dM < 0) dM += Math.PI * 2;
+        while (dM >= Math.PI * 2) dM -= Math.PI * 2;
+        return dM / n;
+      } else if (ecc > 1.0001) {
+        const absA = Math.abs(a);
+        const n = Math.sqrt(mu / Math.pow(absA, 3));
+        const toH = (nu) => {
+          const val = Math.sqrt((ecc - 1) / (ecc + 1)) * Math.tan(nu * 0.5);
+          return 2 * Math.atanh(Math.max(-0.999999, Math.min(0.999999, val)));
+        };
+        const H0 = toH(nu0);
+        const H1 = toH(nu1);
+        const M0 = ecc * Math.sinh(H0) - H0;
+        const M1 = ecc * Math.sinh(H1) - H1;
+        const dM = Math.abs(M1 - M0);
+        return dM / n;
+      }
+      return 0;
+    }
+
+    function solveAnalyticalKeplerConic(relX, relY, relVx, relVy, mu, bodyRadius, soiRadius, maxTimeWindow = 180000) {
+      const r = Math.hypot(relX, relY);
+      const v2 = relVx * relVx + relVy * relVy;
+      const energy = v2 / 2 - mu / r;
+      const h = relX * relVy - relY * relVx;
+
+      const rDotV = relX * relVx + relY * relVy;
+      const ex = ((v2 - mu / r) * relX - rDotV * relVx) / mu;
+      const ey = ((v2 - mu / r) * relY - rDotV * relVy) / mu;
+      const ecc = Math.hypot(ex, ey);
+      const omega = Math.atan2(ey, ex);
+      const p = (h * h) / mu;
+
+      const isClosed = energy < -1e-5 && ecc < 0.9999;
+      const a = isClosed ? -mu / (2 * energy) : -mu / (2 * Math.max(1e-5, energy));
+      const rPe = p / (1 + ecc);
+      const rAp = isClosed ? a * (1 + ecc) : Infinity;
+
+      let nu0 = Math.atan2(relY, relX) - omega;
+      while (nu0 <= -Math.PI) nu0 += Math.PI * 2;
+      while (nu0 > Math.PI) nu0 -= Math.PI * 2;
+
+      const dir = h >= 0 ? 1 : -1;
+      const pts = [];
+
+      let maxSweep = Math.PI * 2;
+      if (!isClosed) {
+        const cosNuSOI = soiRadius < Infinity ? (p / soiRadius - 1) / Math.max(1e-6, ecc) : -1 / Math.max(1.0001, ecc);
+        const nuLimit = Math.acos(Math.max(-0.999, Math.min(0.999, cosNuSOI))) * 0.995;
+        maxSweep = dir > 0 ? Math.max(0.05, nuLimit - nu0) : Math.max(0.05, nu0 + nuLimit);
+      } else if (rPe < bodyRadius && ecc > 1e-6) {
+        const cosNuImpact = Math.max(-1, Math.min(1, (p / bodyRadius - 1) / ecc));
+        const nuImpact = Math.acos(cosNuImpact);
+        const targetNu = dir > 0 ? nuImpact : -nuImpact;
+        let sweepToImpact = dir > 0 ? (targetNu - nu0) : (nu0 - targetNu);
+        while (sweepToImpact < 0) sweepToImpact += Math.PI * 2;
+        maxSweep = Math.max(0.002, Math.min(Math.PI * 2, sweepToImpact * 1.05));
+      }
+
+      const numSteps = 320;
+      const dNu = (dir * maxSweep) / numSteps;
+
+      let impactPoint = null;
+      let soiExitPoint = null;
+
+      for (let i = 0; i <= numSteps; i++) {
+        const nu = nu0 + i * dNu;
+        const denom = 1 + ecc * Math.cos(nu);
+        if (denom <= 0.001) break;
+        const rad = p / denom;
+
+        const theta = omega + nu;
+        const px = rad * Math.cos(theta);
+        const py = rad * Math.sin(theta);
+
+        const vFactor = Math.sqrt(mu / p);
+        const vPerifocalX = -vFactor * Math.sin(nu);
+        const vPerifocalY = vFactor * (ecc + Math.cos(nu));
+        const vx = vPerifocalX * Math.cos(omega) - vPerifocalY * Math.sin(omega);
+        const vy = vPerifocalX * Math.sin(omega) + vPerifocalY * Math.cos(omega);
+
+        const dtFromStart = i === 0 ? 0 : computeKeplerTimeBetweenTrueAnomalies(nu0, nu, ecc, a, mu, dir);
+        pts.push({ relX: px, relY: py, relVx: vx, relVy: vy, r: rad, dt: dtFromStart });
+
+        if (i > 0 && rad <= bodyRadius && !sim.landed) {
+          impactPoint = { relX: px, relY: py };
+          break;
+        }
+        if (i > 2 && rad >= soiRadius) {
+          soiExitPoint = { relX: px, relY: py };
+          break;
+        }
+      }
+
+      const dtToPe = computeKeplerTimeBetweenTrueAnomalies(nu0, 0, ecc, a, mu, dir);
+      const pePoint = {
+        relX: rPe * Math.cos(omega),
+        relY: rPe * Math.sin(omega),
+        alt: rPe - bodyRadius,
+        dt: dtToPe
+      };
+
+      const dtToAp = isClosed ? computeKeplerTimeBetweenTrueAnomalies(nu0, Math.PI, ecc, a, mu, dir) : 0;
+      const apPoint = isClosed ? {
+        relX: -rAp * Math.cos(omega),
+        relY: -rAp * Math.sin(omega),
+        alt: rAp - bodyRadius,
+        dt: dtToAp
+      } : null;
+
+      const period = isClosed ? 2 * Math.PI * Math.sqrt(Math.pow(a, 3) / mu) : maxTimeWindow;
+
+      return {
+        pts,
+        isClosed,
+        ecc,
+        a,
+        rPe,
+        rAp,
+        pePoint,
+        apPoint,
+        impactPoint,
+        soiExitPoint,
+        period
+      };
+    }
+
+    function propagateConicPath(startX, startY, startVx, startVy, startTime, maxSteps, baseDt, ghostParts = null, throttle = 0, thrustAngle = 0) {
+      const points = [];
+      const encounterConicPoints = [];
+      let px = startX, py = startY, vx = startVx, vy = startVy, t = startTime;
+
+      const startSOIId = getCurrentSOI(px, py, t);
+      const startSOIBody = CELESTIAL_BODIES[startSOIId];
+      const startBState = getBodyState(startSOIId, t);
+
+      const candidateChildren = startSOIBody.children;
+
+      if (!ghostParts || throttle <= 0) {
+        const conic = solveAnalyticalKeplerConic(
+          px - startBState.x, py - startBState.y,
+          vx - startBState.vx, vy - startBState.vy,
+          startSOIBody.mu, startSOIBody.radius, startSOIBody.soiRadius
+        );
+
+        const primaryApPoint = conic.apPoint ? {
+          x: startBState.x + conic.apPoint.relX,
+          y: startBState.y + conic.apPoint.relY,
+          relX: conic.apPoint.relX,
+          relY: conic.apPoint.relY,
+          alt: conic.apPoint.alt,
+          t: t + conic.apPoint.dt
+        } : null;
+
+        const primaryPePoint = {
+          x: startBState.x + conic.pePoint.relX,
+          y: startBState.y + conic.pePoint.relY,
+          relX: conic.pePoint.relX,
+          relY: conic.pePoint.relY,
+          alt: conic.pePoint.alt,
+          t: t + conic.pePoint.dt
+        };
+
+        let encounterBodyId = null;
+        let soiEntryPoint = null;
+        let soiExitPoint = null;
+        let encounterPeriapsisPoint = null;
+        let encounterMinR = Infinity;
+        let impactPoint = conic.impactPoint ? {
+          x: startBState.x + conic.impactPoint.relX,
+          y: startBState.y + conic.impactPoint.relY,
+          body: startSOIId
+        } : null;
+
+        const needsScan = candidateChildren.length > 0 || !conic.isClosed || conic.rAp > startSOIBody.soiRadius * 0.92;
+        if (needsScan && !sim.landed) {
+          let sx = px, sy = py, svx = vx, svy = vy, st = t;
+          const scanHorizon = startSOIId === ROOT_BODY_ID ? Math.min(conic.period * 1.4, 950000) : Math.min(conic.period * 1.35 + 120000, 750000);
+          let prevStepSOI = startSOIId;
+          let captureSOIId = null;
+          let elapsedScan = 0;
+
+          for (let k = 0; k < 9000 && elapsedScan < scanHorizon; k++) {
+            const stepSOI = getCurrentSOI(sx, sy, st);
+            const stepBody = CELESTIAL_BODIES[stepSOI];
+            const bPrev = getBodyState(stepSOI, st);
+            const rCur = Math.hypot(sx - bPrev.x, sy - bPrev.y);
+
+            let dtS = stepSOI === ROOT_BODY_ID ? 90 : (rCur < stepBody.radius * 3 ? 6 : 22);
+            if (stepSOI !== startSOIId && stepSOI !== ROOT_BODY_ID) dtS = Math.min(dtS, 8);
+
+            const prevSt = st;
+            st += dtS;
+            elapsedScan += dtS;
+
+            if (prevStepSOI !== stepSOI) {
+              if (stepBody.parent === prevStepSOI) {
+                captureSOIId = stepSOI;
+                encounterBodyId = stepSOI;
+                encounterConicPoints.length = 0;
+                encounterMinR = Infinity;
+                soiEntryPoint = { x: sx, y: sy, t: st, bodyId: stepSOI };
+              } else if (CELESTIAL_BODIES[prevStepSOI].parent === stepSOI) {
+                if (!soiExitPoint) {
+                  soiExitPoint = { x: sx, y: sy, t: st, bodyId: stepSOI };
+                }
+                if (!captureSOIId) {
+                  captureSOIId = stepSOI;
+                  encounterBodyId = stepSOI;
+                  encounterConicPoints.length = 0;
+                  encounterMinR = Infinity;
+                } else if (prevStepSOI === captureSOIId) {
+                  break;
+                }
+              }
+            }
+            prevStepSOI = stepSOI;
+
+            const kep = propagateKeplerStep(sx - bPrev.x, sy - bPrev.y, svx - bPrev.vx, svy - bPrev.vy, stepBody.mu, dtS);
+            const bNext = getBodyState(stepSOI, st);
+            sx = bNext.x + kep.relX;
+            sy = bNext.y + kep.relY;
+            svx = bNext.vx + kep.relVx;
+            svy = bNext.vy + kep.relVy;
+
+            if (captureSOIId && stepSOI === captureSOIId) {
+              const relEx = kep.relX;
+              const relEy = kep.relY;
+              const rEnc = Math.hypot(relEx, relEy);
+
+              if (rEnc < encounterMinR) {
+                encounterMinR = rEnc;
+                encounterPeriapsisPoint = {
+                  relX: relEx,
+                  relY: relEy,
+                  worldX: sx,
+                  worldY: sy,
+                  alt: rEnc - stepBody.radius,
+                  t: st,
+                  bodyId: captureSOIId
+                };
+              }
+              if (encounterConicPoints.length < 450) {
+                encounterConicPoints.push({ relX: relEx, relY: relEy, t: st });
+              }
+              if (rEnc <= stepBody.radius) {
+                impactPoint = { x: sx, y: sy, body: captureSOIId };
+                break;
+              }
+            } else if (Math.hypot(kep.relX, kep.relY) <= stepBody.radius) {
+              break;
+            }
+          }
+        }
+
+        const cutoffTime = soiEntryPoint ? soiEntryPoint.t : (soiExitPoint ? soiExitPoint.t : Infinity);
+        conic.pts.forEach((pt) => {
+          const ptTime = t + pt.dt;
+          if (ptTime > cutoffTime) return;
+
+          const bAtT = getBodyState(startSOIId, ptTime);
+          points.push({
+            x: startBState.x + pt.relX,
+            y: startBState.y + pt.relY,
+            vx: bAtT.vx + pt.relVx,
+            vy: bAtT.vy + pt.relVy,
+            relX: pt.relX,
+            relY: pt.relY,
+            t: ptTime,
+            soi: startSOIId
+          });
+        });
+
+        if (soiExitPoint && encounterBodyId && encounterConicPoints.length > 1) {
+          const parentId = CELESTIAL_BODIES[startSOIId].parent;
+          if (parentId) {
+            const parentNow = getBodyState(parentId, t);
+            const parentAtExit = getBodyState(parentId, soiExitPoint.t);
+            const pShiftX = parentNow.x - parentAtExit.x;
+            const pShiftY = parentNow.y - parentAtExit.y;
+
+            if (encounterBodyId === parentId) {
+              encounterConicPoints.forEach(ep => {
+                const pAtEp = getBodyState(parentId, ep.t);
+                points.push({
+                  x: pAtEp.x + ep.relX + pShiftX,
+                  y: pAtEp.y + ep.relY + pShiftY,
+                  vx: pAtEp.vx,
+                  vy: pAtEp.vy,
+                  relX: ep.relX,
+                  relY: ep.relY,
+                  t: ep.t,
+                  soi: parentId
+                });
+              });
+            }
+          }
+        }
+
+        return {
+          points,
+          startSOIId,
+          encounterBodyId,
+          encounterConicPoints,
+          maxR: conic.rAp,
+          minR: conic.rPe,
+          encounterMinR,
+          primaryApPoint,
+          primaryPePoint,
+          encounterPeriapsisPoint,
+          soiEntryPoint,
+          soiExitPoint,
+          impactPoint,
+          hasEncounter: !!encounterBodyId
+        };
+      }
+
+      let maxR = 0, minR = Infinity, encounterMinR = Infinity;
+      let primaryApPoint = null, primaryPePoint = null;
+      let encounterPeriapsisPoint = null, soiEntryPoint = null, soiExitPoint = null, impactPoint = null;
+      let encounterBodyId = null;
+
+      const burnSubSteps = 45;
+      const burnDt = startSOIId === ROOT_BODY_ID ? 8 : 2.5;
+
+      for (let i = 0; i < burnSubSteps; i++) {
+        const stepSOI = getCurrentSOI(px, py, t);
+        const stepBody = CELESTIAL_BODIES[stepSOI];
+        const prevT = t;
+        t += burnDt;
+
+        const totalMassKg = ghostParts.reduce((s, p) => s + (p.dryMass + p.currentFuel) * 1000, 0);
+        let currentThrustN = 0;
+        const sections = getIsolatedSections(ghostParts);
+        sections.forEach(sec => {
+          const engines = sec.filter(p => p.category === 'Engine' && p.activated === true && p.thrust > 0);
+          const tanks = sec.filter(p => p.fuelMass > 0 && p.currentFuel > 0.0001);
+          const fuelKg = tanks.reduce((sum, tk) => sum + tk.currentFuel * 1000, 0);
+          if (engines.length > 0 && fuelKg > 0.01) {
+            let secThrust = 0, secMassFlow = 0;
+            engines.forEach(eng => {
+              const tH = eng.thrust * throttle;
+              secThrust += tH;
+              secMassFlow += tH / (eng.isp * g0);
+            });
+            const usedKg = Math.min(fuelKg, secMassFlow * burnDt);
+            const ratio = secMassFlow * burnDt > 0 ? usedKg / (secMassFlow * burnDt) : 0;
+            currentThrustN += secThrust * ratio;
+            const totalTankCap = tanks.reduce((sum, tk) => sum + tk.fuelMass, 0);
+            if (totalTankCap > 0) {
+              tanks.forEach(tk => {
+                tk.currentFuel = Math.max(0, tk.currentFuel - ((usedKg * (tk.fuelMass / totalTankCap)) / 1000));
+              });
+            }
+          }
+        });
+
+        const thrustAccel = totalMassKg > 0 ? currentThrustN / totalMassKg : 0;
+        const rk = stepRK4(
+          px, py, vx, vy, prevT, burnDt, stepSOI,
+          thrustAccel * Math.sin(thrustAngle),
+          thrustAccel * Math.cos(thrustAngle)
+        );
+        px = rk.px; py = rk.py; vx = rk.vx; vy = rk.vy;
+
+        const postBState = getBodyState(stepSOI, t);
+        const relX = px - postBState.x;
+        const relY = py - postBState.y;
+        const drawX = stepSOI === startSOIId ? (startBState.x + relX) : px;
+        const drawY = stepSOI === startSOIId ? (startBState.y + relY) : py;
+        points.push({ x: drawX, y: drawY, vx, vy, relX, relY, t, soi: stepSOI });
+
+        if (Math.hypot(relX, relY) <= stepBody.radius && !sim.landed) {
+          impactPoint = { x: drawX, y: drawY, body: stepSOI };
+          return {
+            points, startSOIId, encounterBodyId: null, encounterConicPoints: [],
+            maxR, minR, encounterMinR, primaryApPoint: null, primaryPePoint: null,
+            encounterPeriapsisPoint: null, soiEntryPoint: null, soiExitPoint: null,
+            impactPoint, hasEncounter: false
+          };
+        }
+        if (currentThrustN <= 0) break;
+      }
+
+      const postBurnCoast = propagateConicPath(px, py, vx, vy, t, maxSteps, baseDt, null, 0, 0);
+      const bAtBurnEnd = getBodyState(startSOIId, t);
+      const shiftX = startBState.x - bAtBurnEnd.x;
+      const shiftY = startBState.y - bAtBurnEnd.y;
+
+      postBurnCoast.points.forEach(pt => {
+        points.push({
+          ...pt,
+          x: pt.soi === startSOIId ? pt.x + shiftX : pt.x,
+          y: pt.soi === startSOIId ? pt.y + shiftY : pt.y
+        });
+      });
+
+      return {
+        ...postBurnCoast,
+        points,
+        impactPoint: impactPoint || (postBurnCoast.impactPoint ? {
+          ...postBurnCoast.impactPoint,
+          x: postBurnCoast.impactPoint.body === startSOIId ? postBurnCoast.impactPoint.x + shiftX : postBurnCoast.impactPoint.x,
+          y: postBurnCoast.impactPoint.body === startSOIId ? postBurnCoast.impactPoint.y + shiftY : postBurnCoast.impactPoint.y
+        } : null)
+      };
+    }
+
+    function simulateTrajectoryRollout(includeLiveThrust) {
+      const soiBody = CELESTIAL_BODIES[sim.currentSOI];
+      const bState = getBodyState(sim.currentSOI, sim.time);
+      const rStart = Math.hypot(sim.x - bState.x, sim.y - bState.y);
+      const baseDt = sim.currentSOI === ROOT_BODY_ID ? 60 : (rStart < soiBody.radius + 250000 ? 5 : 16);
+      const ghostParts = includeLiveThrust ? sim.parts.map(p => ({ ...p })) : null;
+      return propagateConicPath(
+        sim.x, sim.y, sim.vx, sim.vy, sim.time,
+        2800, baseDt, ghostParts,
+        includeLiveThrust ? sim.throttle : 0,
+        sim.angle
+      );
+    }
+
+    function computeTrajectoryPrediction() {
+      if (!sim.running) return;
+
+      const coast = simulateTrajectoryRollout(false);
+      sim.predictedPath = coast.points;
+      sim.coastConic = coast;
+      sim.impactPoint = coast.impactPoint;
+
+      const soiBody = CELESTIAL_BODIES[sim.currentSOI];
+      sim.apoapsis = Math.max(0, coast.maxR - soiBody.radius);
+      sim.periapsis = coast.minR - soiBody.radius;
+
+      if (sim.throttle > 0) {
+        const powered = simulateTrajectoryRollout(true);
+        sim.thrustPredictedPath = powered.points;
+        sim.poweredConic = powered;
+        if (powered.impactPoint) sim.impactPoint = powered.impactPoint;
+      } else {
+        sim.thrustPredictedPath = [];
+        sim.poweredConic = null;
+      }
+
+      if (sim.maneuverNode) {
+        updateManeuverNodePrediction();
+      }
+    }
+
+    function autoPlotTransfer() {
+      if (!sim.running) return;
+      if (sim.targetBody === 'NONE') {
+        showToast('Select a target planet or moon first!', 'warn');
+        return;
+      }
+      if (sim.targetBody === sim.currentSOI) {
+        showToast(`You are already inside ${CELESTIAL_BODIES[sim.currentSOI].name}'s SOI!`, 'info');
+        return;
+      }
+      if (sim.predictedPath.length < 10) computeTrajectoryPrediction();
+
+      const curSOIBody = CELESTIAL_BODIES[sim.currentSOI];
+      const targetBody = CELESTIAL_BODIES[sim.targetBody];
+      const curState = getBodyState(sim.currentSOI, sim.time);
+
+      if (targetBody.parent === sim.currentSOI) {
+        const r1 = Math.max(curSOIBody.radius + 60000, Math.hypot(sim.x - curState.x, sim.y - curState.y));
+        const r2 = targetBody.orbitRadius;
+        const vCirc = Math.sqrt(curSOIBody.mu / r1);
+        const dvHohmann = vCirc * (Math.sqrt((2 * r2) / (r1 + r2)) - 1) + 25.0;
+
+        const aTransfer = (r1 + r2) / 2;
+        const tFlight = Math.PI * Math.sqrt(Math.pow(aTransfer, 3) / curSOIBody.mu);
+        const targetSweepRad = targetBody.angularVel * tFlight;
+        const targetPhaseRad = Math.PI - targetSweepRad - 0.08;
+
+        let bestPt = sim.predictedPath[Math.min(12, sim.predictedPath.length - 1)];
+        let bestAngleErr = Infinity;
+
+        for (let i = 4; i < sim.predictedPath.length; i++) {
+          const pt = sim.predictedPath[i];
+          const pCur = getBodyState(sim.currentSOI, pt.t);
+          const pTgt = getBodyState(sim.targetBody, pt.t);
+          const rAng = Math.atan2(pt.relY, pt.relX);
+          const mAng = Math.atan2(pTgt.y - pCur.y, pTgt.x - pCur.x);
+          let phase = mAng - rAng;
+          while (phase < 0) phase += Math.PI * 2;
+          while (phase >= Math.PI * 2) phase -= Math.PI * 2;
+
+          const err = Math.abs(phase - targetPhaseRad);
+          if (err < bestAngleErr) {
+            bestAngleErr = err;
+            bestPt = pt;
+          }
+        }
+
+        placeManeuverNodeAtPoint(bestPt, Math.round(dvHohmann), 15);
+        showToast(`${targetBody.icon} Transfer to ${targetBody.name} plotted (${Math.round(dvHohmann)} m/s)!`, 'success');
+        return;
+      }
+
+      const originPlanetId = curSOIBody.parent === ROOT_BODY_ID ? sim.currentSOI : curSOIBody.parent;
+      const destPlanetId = targetBody.parent === ROOT_BODY_ID ? sim.targetBody : targetBody.parent;
+
+      if (!originPlanetId || !destPlanetId || originPlanetId === destPlanetId) {
+        showToast('Place a manual maneuver node on your orbit for local rendezvous.', 'info');
+        return;
+      }
+
+      const originPlanet = CELESTIAL_BODIES[originPlanetId];
+      const destPlanet = CELESTIAL_BODIES[destPlanetId];
+      const sun = CELESTIAL_BODIES[ROOT_BODY_ID];
+
+      const r1Sun = originPlanet.orbitRadius;
+      const r2Sun = destPlanet.orbitRadius;
+      const aTransSun = (r1Sun + r2Sun) / 2;
+
+      const vPlanet = Math.sqrt(sun.mu / r1Sun);
+      const vHelioDepart = Math.sqrt(sun.mu * (2 / r1Sun - 1 / aTransSun));
+      const vInf = Math.abs(vHelioDepart - vPlanet);
+      const isOutward = r2Sun > r1Sun;
+
+      const rPark = Math.max(originPlanet.radius + 75000, Math.hypot(sim.x - curState.x, sim.y - curState.y));
+      const vPark = Math.sqrt(originPlanet.mu / rPark);
+      const vEject = Math.sqrt(vInf * vInf + (2 * originPlanet.mu) / rPark);
+      const dvEjection = vEject - vPark;
+
+      const planetState = getBodyState(originPlanetId, sim.time);
+      const planetProgradeAngle = Math.atan2(planetState.vy, planetState.vx);
+      const desiredBurnDir = isOutward ? planetProgradeAngle : (planetProgradeAngle + Math.PI);
+
+      let bestPt = sim.predictedPath[Math.min(10, sim.predictedPath.length - 1)];
+      let bestDirErr = Infinity;
+
+      for (let i = 4; i < sim.predictedPath.length; i++) {
+        const pt = sim.predictedPath[i];
+        const pStateAtT = getBodyState(originPlanetId, pt.t);
+        const relVx = pt.vx - pStateAtT.vx;
+        const relVy = pt.vy - pStateAtT.vy;
+        const burnAng = Math.atan2(relVy, relVx);
+        let err = Math.abs(burnAng - desiredBurnDir);
+        while (err > Math.PI) err = Math.abs(err - Math.PI * 2);
+        if (err < bestDirErr) {
+          bestDirErr = err;
+          bestPt = pt;
+        }
+      }
+
+      placeManeuverNodeAtPoint(bestPt, Math.round(dvEjection), 0);
+      showToast(`🚀 Interplanetary Ejection to ${destPlanet.name} plotted (${Math.round(dvEjection)} m/s)!`, 'success');
+    }
+
+    function placeManeuverNodeAtPoint(pt, progradeDv, radialDv) {
+      const nodeSOI = pt.soi || getCurrentSOI(pt.x, pt.y, pt.t);
+      const bNow = getBodyState(nodeSOI, sim.time);
+      const bAtNodeTime = getBodyState(nodeSOI, pt.t);
+
+      const relVx = pt.vx - bAtNodeTime.vx;
+      const relVy = pt.vy - bAtNodeTime.vy;
+      const speed = Math.hypot(relVx, relVy) || 1;
+      const proX = relVx / speed;
+      const proY = relVy / speed;
+      const radX = proY;
+      const radY = -proX;
+
+      const burnDvx = proX * progradeDv + radX * radialDv;
+      const burnDvy = proY * progradeDv + radY * radialDv;
+
+      sim.maneuverNode = {
+        targetTime: pt.t,
+        soi: nodeSOI,
+        relX: pt.relX,
+        relY: pt.relY,
+        x: bNow.x + pt.relX,
+        y: bNow.y + pt.relY,
+        vx: pt.vx,
+        vy: pt.vy,
+        targetRelVx: relVx + burnDvx,
+        targetRelVy: relVy + burnDvy,
+        progradeDv,
+        radialDv,
+        postPath: [],
+        encounterConicPoints: [],
+        encounterPeriapsisPoint: null,
+        encounterBodyId: null,
+        soiEntryPoint: null,
+        soiExitPoint: null,
+        encounter: false
+      };
+
+      document.getElementById('slider-prograde').value = progradeDv;
+      document.getElementById('slider-radial').value = radialDv;
+      updateManeuverUI();
+      updateManeuverNodePrediction();
+      setSAS('NODE');
+
+      if (currentMode !== 'MAP') switchMode('MAP');
+    }
+
+    function getManeuverWorldBurnVector() {
+      if (!sim.maneuverNode) return null;
+      const node = sim.maneuverNode;
+      const soiId = node.soi || sim.currentSOI;
+      const bNow = getBodyState(soiId, sim.time);
+
+      if (node.targetRelVx !== undefined && node.targetRelVy !== undefined) {
+        const curRelVx = sim.vx - bNow.vx;
+        const curRelVy = sim.vy - bNow.vy;
+        return {
+          dvx: node.targetRelVx - curRelVx,
+          dvy: node.targetRelVy - curRelVy
+        };
+      }
+
+      const bState = getBodyState(soiId, node.targetTime);
+      const relVx = node.vx - bState.vx;
+      const relVy = node.vy - bState.vy;
+      const speed = Math.hypot(relVx, relVy);
+      if (speed < 0.01) return { dvx: 0, dvy: 0 };
+
+      const proX = relVx / speed;
+      const proY = relVy / speed;
+      const radX = proY;
+      const radY = -proX;
+
+      return {
+        dvx: proX * node.progradeDv + radX * node.radialDv,
+        dvy: proY * node.progradeDv + radY * node.radialDv
+      };
+    }
+
+    function updateManeuverNodePrediction() {
+      const node = sim.maneuverNode;
+      if (!node || sim.predictedPath.length === 0) return;
+
+      const nodeSOI = node.soi || sim.currentSOI;
+      const bNow = getBodyState(nodeSOI, sim.time);
+      const bAtNodeTime = getBodyState(nodeSOI, node.targetTime);
+
+      node.x = bNow.x + node.relX;
+      node.y = bNow.y + node.relY;
+
+      if (sim.throttle === 0 && sim.time < node.targetTime) {
+        let bestPt = sim.predictedPath[0];
+        let bestDiff = Infinity;
+        for (let i = 0; i < sim.predictedPath.length; i++) {
+          const diff = Math.abs(sim.predictedPath[i].t - node.targetTime);
+          if (diff < bestDiff) {
+            bestDiff = diff;
+            bestPt = sim.predictedPath[i];
+          }
+        }
+        if (bestDiff < 2.0) {
+          node.relX = bestPt.relX;
+          node.relY = bestPt.relY;
+          node.x = bNow.x + bestPt.relX;
+          node.y = bNow.y + bestPt.relY;
+          node.vx = bestPt.vx;
+          node.vy = bestPt.vy;
+        }
+      }
+
+      const burnVec = getManeuverWorldBurnVector();
+      const remainingDv = Math.hypot(burnVec.dvx, burnVec.dvy);
+
+      const postVx = bAtNodeTime.vx + node.targetRelVx;
+      const postVy = bAtNodeTime.vy + node.targetRelVy;
+
+      const result = propagateConicPath(
+        bAtNodeTime.x + node.relX, bAtNodeTime.y + node.relY,
+        postVx, postVy,
+        node.targetTime, 3600, 18
+      );
+
+      const dShiftX = bNow.x - bAtNodeTime.x;
+      const dShiftY = bNow.y - bAtNodeTime.y;
+      node.postPath = result.points.map(p => (
+        p.soi === nodeSOI ? { ...p, x: p.x + dShiftX, y: p.y + dShiftY } : p
+      ));
+      node.encounterConicPoints = result.encounterConicPoints;
+      node.encounterPeriapsisPoint = result.encounterPeriapsisPoint;
+      node.encounterBodyId = result.encounterBodyId;
+      node.soiEntryPoint = result.soiEntryPoint;
+      node.soiExitPoint = result.soiExitPoint;
+      node.encounter = result.hasEncounter;
+      node.postImpact = result.impactPoint
+        ? (result.impactPoint.body === nodeSOI
+            ? { ...result.impactPoint, x: result.impactPoint.x + dShiftX, y: result.impactPoint.y + dShiftY }
+            : result.impactPoint)
+        : null;
+
+      document.getElementById('node-dv-readout').textContent = `${remainingDv.toFixed(1)} m/s`;
+      document.getElementById('node-prograde-val').textContent = `${node.progradeDv > 0 ? '+' : ''}${Math.round(node.progradeDv)} m/s`;
+      document.getElementById('node-radial-val').textContent = `${node.radialDv > 0 ? '+' : ''}${Math.round(node.radialDv)} m/s`;
+
+      const totalMassKg = sim.parts.reduce((s, p) => s + (p.dryMass + p.currentFuel) * 1000, 0);
+      const maxThrustN = sim.parts.filter(p => p.thrust > 0 && p.activated).reduce((s, e) => s + e.thrust, 0);
+      const burnSec = maxThrustN > 0 ? (remainingDv * totalMassKg) / maxThrustN : 0;
+      document.getElementById('node-burn-time').textContent = `${burnSec.toFixed(1)} s`;
+
+      const timeToNode = Math.max(0, node.targetTime - sim.time);
+      document.getElementById('node-countdown').textContent = `T- ${formatDuration(timeToNode)}`;
+
+      const encBadge = document.getElementById('node-encounter-badge');
+      const bodyLabel = document.getElementById('node-enc-body-label');
+      const peLabel = document.getElementById('node-enc-pe-label');
+      if (result.hasEncounter && result.encounterBodyId) {
+        encBadge.classList.remove('hidden');
+        bodyLabel.textContent = CELESTIAL_BODIES[result.encounterBodyId].name.toUpperCase();
+        if (result.encounterPeriapsisPoint && peLabel) {
+          peLabel.textContent = `Pe: ${formatDistance(result.encounterPeriapsisPoint.alt)}`;
+        }
+      } else {
+        encBadge.classList.add('hidden');
+      }
+    }
+
+    function warpToManeuverNode() {
+      if (!sim.maneuverNode) return;
+      if (sim.landed) {
+        showToast('Launch into orbit first before warping to a Maneuver Node!', 'warn');
+        return;
+      }
+
+      const leadTime = 8;
+      const targetWarpTime = sim.maneuverNode.targetTime - leadTime;
+      const durationToWarp = targetWarpTime - sim.time;
+
+      if (durationToWarp <= 0) {
+        showToast('Maneuver node time has already passed or is imminent!', 'warn');
+        return;
+      }
+
+      if (sim.throttle > 0) setThrottle(0);
+
+      const stepSize = 1.0;
+      const totalSteps = Math.ceil(durationToWarp / stepSize);
+      const actualDt = durationToWarp / totalSteps;
+
+      let px = sim.x;
+      let py = sim.y;
+      let vx = sim.vx;
+      let vy = sim.vy;
+      let t = sim.time;
+      let soi = sim.currentSOI;
+
+      const rocketHalfH = sim.parts.reduce((s, p) => s + p.height, 0) * 0.35 * 0.5;
+
+      for (let i = 0; i < totalSteps; i++) {
+        const prevT = t;
+        t += actualDt;
+        const nextSOI = getCurrentSOI(px, py, prevT);
+        if (nextSOI !== soi) {
+          soi = nextSOI;
+          triggerPlanetSOIExploration(soi);
+          break;
+        }
+        const soiBody = CELESTIAL_BODIES[soi];
+        const bPrev = getBodyState(soi, prevT);
+        const rLocal = Math.hypot(px - bPrev.x, py - bPrev.y);
+        const alt = rLocal - soiBody.radius;
+        const inAtmo = soiBody.atmoHeight > 0 && alt < soiBody.atmoHeight && alt > 0;
+
+        if (!inAtmo) {
+          const kep = propagateKeplerStep(px - bPrev.x, py - bPrev.y, vx - bPrev.vx, vy - bPrev.vy, soiBody.mu, actualDt);
+          const bNext = getBodyState(soi, t);
+          px = bNext.x + kep.relX;
+          py = bNext.y + kep.relY;
+          vx = bNext.vx + kep.relVx;
+          vy = bNext.vy + kep.relVy;
+        } else {
+          const totalMassKg = sim.parts.reduce((s, p) => s + (p.dryMass + p.currentFuel) * 1000, 0);
+          const atmoScaleH = soiBody.atmoHeight / 9.3;
+          const surfaceDensity = soiBody.id === 'VENUS' ? 6.5 : (soiBody.id === 'MARS' ? 0.08 : 1.225);
+          const rho = surfaceDensity * Math.exp(-alt / atmoScaleH);
+          const relVx = vx - bPrev.vx;
+          const relVy = vy - bPrev.vy;
+          const v = Math.hypot(relVx, relVy);
+          let dragAx = 0, dragAy = 0;
+          if (v > 0.1 && totalMassKg > 0) {
+            const hasFairing = sim.parts.some(p => p.id === 'fairing');
+            let cdA = hasFairing ? 1.8 : 3.6;
+            if (sim.parachutesDeployed) cdA += 48.0;
+            const dragForce = 0.5 * rho * v * v * cdA;
+            dragAx = -(dragForce * (relVx / v)) / totalMassKg;
+            dragAy = -(dragForce * (relVy / v)) / totalMassKg;
+          }
+          const rk = stepRK4(px, py, vx, vy, prevT, actualDt, soi, dragAx, dragAy);
+          px = rk.px; py = rk.py; vx = rk.vx; vy = rk.vy;
+        }
+
+        const bCheck = getBodyState(soi, t);
+        if (Math.hypot(px - bCheck.x, py - bCheck.y) <= soiBody.radius + rocketHalfH) {
+          showToast(`Warp aborted: Trajectory intersected ${soiBody.name} surface!`, 'danger');
+          break;
+        }
+      }
+
+      sim.x = px;
+      sim.y = py;
+      sim.vx = vx;
+      sim.vy = vy;
+      sim.time = t;
+      sim.currentSOI = soi;
+
+      if (sim.sasMode === 'NODE' && sim.maneuverNode) {
+        const burnVec = getManeuverWorldBurnVector();
+        if (burnVec && Math.hypot(burnVec.dvx, burnVec.dvy) > 0.1) {
+          sim.angle = Math.atan2(burnVec.dvx, burnVec.dvy);
+        }
+      }
+
+      setTimeWarp(1);
+      computeTrajectoryPrediction();
+      showToast('Warped rocket to Maneuver Node!', 'success');
+    }
+
+    function updateNodeFromSliders() {
+      if (!sim.maneuverNode) return;
+      const node = sim.maneuverNode;
+      node.progradeDv = parseFloat(document.getElementById('slider-prograde').value);
+      node.radialDv = parseFloat(document.getElementById('slider-radial').value);
+
+      const soiId = node.soi || sim.currentSOI;
+      const bAtNodeTime = getBodyState(soiId, node.targetTime);
+      const baseRelVx = node.vx - bAtNodeTime.vx;
+      const baseRelVy = node.vy - bAtNodeTime.vy;
+      const speed = Math.hypot(baseRelVx, baseRelVy) || 1;
+      const proX = baseRelVx / speed;
+      const proY = baseRelVy / speed;
+      const radX = proY;
+      const radY = -proX;
+
+      node.targetRelVx = baseRelVx + proX * node.progradeDv + radX * node.radialDv;
+      node.targetRelVy = baseRelVy + proY * node.progradeDv + radY * node.radialDv;
+
+      updateManeuverNodePrediction();
+    }
+
+    function clearManeuverNode() {
+      sim.maneuverNode = null;
+      if (sim.sasMode === 'NODE') setSAS('MANUAL');
+      updateManeuverUI();
+    }
+
+    function updateManeuverUI() {
+      const hasNode = !!sim.maneuverNode;
+      const clearBtn = document.getElementById('btn-clear-node');
+      const warpBtn = document.getElementById('btn-warp-node');
+      const emptyHint = document.getElementById('maneuver-empty-hint');
+      const activeControls = document.getElementById('maneuver-active-controls');
+
+      if (clearBtn) clearBtn.classList.toggle('hidden', !hasNode);
+      if (warpBtn) warpBtn.classList.toggle('hidden', !hasNode);
+      if (emptyHint) emptyHint.classList.toggle('hidden', hasNode);
+      if (activeControls) activeControls.classList.toggle('hidden', !hasNode);
+    }
+
+    // =========================================================================
+    // 9. CONTROLS, STAGING, TARGETING & TIME WARP
+    // =========================================================================
+    let padIgniteHintShown = false;
+
+    function setThrottle(val) {
+      sim.throttle = Math.max(0, Math.min(1, val));
+      const throttleSlider = document.getElementById('throttle-slider');
+      if (throttleSlider) throttleSlider.value = Math.round(sim.throttle * 100);
+      const throttlePct = document.getElementById('throttle-pct');
+      if (throttlePct) throttlePct.textContent = `${Math.round(sim.throttle * 100)}%`;
+
+      if (sim.running && sim.landed && sim.throttle > 0 && !padIgniteHintShown) {
+        const activeEngines = sim.parts.filter(p => p.category === 'Engine' && p.activated);
+        if (activeEngines.length === 0) {
+          padIgniteHintShown = true;
+          showToast(`Press SPACE (or click 🔥 STAGE / IGNITE) to light Stage ${sim.nextStage} engines!`, 'warn');
+        }
+      }
+
+      if (sim.throttle > 0 && sim.timeWarp > 3) {
+        setTimeWarp(3);
+        showToast('Time warp capped at 3x Physics Warp during engine burn.', 'info');
+      }
+      if (sim.running) computeTrajectoryPrediction();
+    }
+
+    function activateNextStage() {
+      if (!sim.running) return;
+      if (sim.nextStage < 0) {
+        showToast('All stages have already been executed!', 'info');
+        return;
+      }
+
+      const stageToFire = sim.nextStage;
+      const partsInStage = sim.parts.filter(p => p.stage === stageToFire);
+
+      let ignitedCount = 0;
+      let decoupledCount = 0;
+      let jettisonedFairing = false;
+
+      partsInStage.forEach(p => {
+        if (p.category === 'Engine') {
+          p.activated = true;
+          ignitedCount++;
+        }
+      });
+
+      const decouplerIdx = sim.parts.findIndex(p => p.id === 'decoupler' && p.stage === stageToFire);
+      if (decouplerIdx !== -1) {
+        const detachedParts = sim.parts.slice(decouplerIdx);
+        detachedParts.forEach(dp => { dp.activated = false; });
+
+        const dirX = Math.sin(sim.angle);
+        const dirY = Math.cos(sim.angle);
+        sim.debris.push({
+          parts: detachedParts,
+          x: sim.x - dirX * 16,
+          y: sim.y - dirY * 16,
+          vx: sim.vx - dirX * 12 + (Math.random() - 0.5) * 2.5,
+          vy: sim.vy - dirY * 12 + (Math.random() - 0.5) * 2.5,
+          angle: sim.angle,
+          angVel: (Math.random() - 0.5) * 0.75
+        });
+
+        sim.parts = sim.parts.slice(0, decouplerIdx);
+        decoupledCount = detachedParts.length;
+      }
+
+      const fairingParts = sim.parts.filter(p => p.id === 'fairing' && p.stage === stageToFire);
+      if (fairingParts.length > 0) {
+        const dirX = Math.sin(sim.angle);
+        const dirY = Math.cos(sim.angle);
+        const perpX = Math.cos(sim.angle);
+        const perpY = -Math.sin(sim.angle);
+        fairingParts.forEach(fp => {
+          sim.debris.push({
+            parts: [fp],
+            x: sim.x + dirX * 10,
+            y: sim.y + dirY * 10,
+            vx: sim.vx + perpX * 14,
+            vy: sim.vy + perpY * 14,
+            angle: sim.angle,
+            angVel: 1.2
+          });
+        });
+        sim.parts = sim.parts.filter(p => !(p.id === 'fairing' && p.stage === stageToFire));
+        jettisonedFairing = true;
+      }
+
+      sim.nextStage--;
+
+      const actions = [];
+      if (decoupledCount > 0) actions.push('Decoupled spent stage');
+      if (jettisonedFairing) actions.push('Jettisoned fairing');
+      if (ignitedCount > 0) actions.push(`Ignited ${ignitedCount} engine${ignitedCount > 1 ? 's' : ''}`);
+      if (actions.length === 0) actions.push(`Stage ${stageToFire} triggered`);
+
+      showToast(`Stage ${stageToFire}: ${actions.join(' & ')}!`, 'success');
+      computeTrajectoryPrediction();
+    }
+
+    function deployParachutes() {
+      if (!sim.running) return;
+      showToast('Deep-space reconnaissance probe has no landing parachutes — mission profile is orbital SOI exploration only!', 'info');
+    }
+
+    function setSAS(mode) {
+      if (mode === 'NODE' && !sim.maneuverNode) {
+        showToast('Place a Maneuver Node in Map View first!', 'warn');
+        return;
+      }
+      sim.sasMode = mode;
+      updateSASButtons();
+    }
+
+    function updateSASButtons() {
+      document.querySelectorAll('.sas-btn').forEach(btn => {
+        if (btn.dataset.sas === sim.sasMode) {
+          btn.className = 'sas-btn px-2 py-1 rounded text-[11px] font-semibold bg-sky-500 text-slate-950';
+        } else {
+          btn.className = 'sas-btn px-2 py-1 rounded text-[11px] font-semibold bg-slate-800 text-slate-300 hover:bg-slate-700';
+        }
+      });
+    }
+
+    function setTimeWarp(mult) {
+      if (mult > 3 && sim.throttle > 0) {
+        showToast('Max 3x Physics Warp allowed under thrust! Cut throttle (X) for higher warp.', 'warn');
+        mult = 3;
+      }
+      sim.timeWarp = mult;
+      document.querySelectorAll('.warp-btn').forEach(btn => {
+        const btnWarp = parseInt(btn.dataset.warp);
+        if (btnWarp === mult) {
+          btn.className = mult === 3
+            ? 'warp-btn px-2 py-1 rounded text-xs font-mono-tech font-bold bg-amber-400 text-slate-950'
+            : 'warp-btn px-2 py-1 rounded text-xs font-mono-tech font-bold bg-sky-500 text-slate-950';
+        } else if (btnWarp === 3) {
+          btn.className = 'warp-btn px-2 py-1 rounded text-xs font-mono-tech bg-slate-800 text-amber-300 hover:bg-slate-700 border border-amber-500/30';
+        } else {
+          btn.className = 'warp-btn px-2 py-1 rounded text-xs font-mono-tech bg-slate-800 text-slate-300 hover:bg-slate-700';
+        }
+      });
+    }
+
+    function selectTarget(val) {
+      sim.targetBody = val;
+      const panel = document.getElementById('target-info-panel');
+      if (val !== 'NONE' && CELESTIAL_BODIES[val]) {
+        const b = CELESTIAL_BODIES[val];
+        panel.classList.remove('hidden');
+        document.getElementById('nav-target-name').textContent = `${b.icon} ${b.name.toUpperCase()}`;
+        showToast(`Target set: ${b.name}. View Hohmann Transfer Δv in top-right panel.`, 'info');
+      } else {
+        panel.classList.add('hidden');
+      }
+    }
+
+    function setMapFocus(focus) {
+      sim.mapFocus = focus;
+      sim.mapPanX = 0;
+      sim.mapPanY = 0;
+
+      if (focus === 'SUN' && sim.mapZoom > 0.00001) {
+        sim.mapZoom = 0.0000018;
+      } else if (focus !== 'ROCKET' && CELESTIAL_BODIES[focus] && sim.mapZoom < 0.000005) {
+        sim.mapZoom = 0.00008;
+      }
+    }
+
+    function zoomMap(factor) {
+      if (currentMode === 'MAP') {
+        sim.mapZoom = Math.max(0.0000005, Math.min(0.02, sim.mapZoom * factor));
+      } else if (currentMode === 'FLIGHT') {
+        sim.flightZoom = Math.max(0.25, Math.min(4.5, sim.flightZoom * factor));
+      }
+    }
+
+    // =========================================================================
+    // 10. RENDERING: FLIGHT VIEW, MAP VIEW, PATCHED CONICS & NAVBALL
+    // =========================================================================
+    function formatDistance(meters) {
+      const absM = Math.abs(meters);
+      const sign = meters < 0 ? '-' : '';
+      if (absM < 1000) return `${sign}${Math.round(absM)} m`;
+      if (absM < 1000000) return `${sign}${(absM / 1000).toFixed(1)} km`;
+      return `${sign}${(absM / 1000000).toFixed(2)} Mm`;
+    }
+
+    function formatDuration(sec) {
+      const s = Math.floor(sec);
+      const hrs = Math.floor(s / 3600);
+      const mins = Math.floor((s % 3600) / 60);
+      const secs = s % 60;
+      return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function updateFlightHUD() {
+      if (!sim.running) return;
+
+      const soiBody = CELESTIAL_BODIES[sim.currentSOI];
+      const bState = getBodyState(sim.currentSOI, sim.time);
+      const rLocal = Math.hypot(sim.x - bState.x, sim.y - bState.y);
+
+      const alt = rLocal - soiBody.radius;
+      const relVx = sim.vx - bState.vx;
+      const relVy = sim.vy - bState.vy;
+      const speed = Math.hypot(relVx, relVy);
+
+      evaluateMissionCheckpoints(alt, speed);
+
+      const soiBadge = document.getElementById('hud-soi-badge');
+      soiBadge.textContent = `SOI: ${soiBody.name.toUpperCase()}`;
+      if (soiBody.type === 'moon') {
+        soiBadge.className = 'text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40';
+      } else if (soiBody.type === 'star') {
+        soiBadge.className = 'text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40';
+      } else {
+        soiBadge.className = 'text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30';
+      }
+
+      document.getElementById('hud-mission-time').textContent = `T+ ${formatDuration(sim.time)}`;
+      document.getElementById('hud-alt').textContent = formatDistance(alt);
+      document.getElementById('hud-vel').textContent = `${speed.toFixed(1)} m/s`;
+      document.getElementById('hud-ap').textContent = formatDistance(sim.apoapsis);
+      document.getElementById('hud-pe').textContent = formatDistance(sim.periapsis);
+
+      const encBox = document.getElementById('hud-encounter-box');
+      const activeEncounterConic = (sim.poweredConic && sim.poweredConic.hasEncounter) ? sim.poweredConic : sim.coastConic;
+      if (activeEncounterConic && activeEncounterConic.hasEncounter && activeEncounterConic.encounterPeriapsisPoint) {
+        const encBody = CELESTIAL_BODIES[activeEncounterConic.encounterBodyId];
+        encBox.classList.remove('hidden');
+        document.getElementById('hud-encounter-title').textContent = `${encBody.icon} ${encBody.name.toUpperCase()} SOI INTERCEPT`;
+        document.getElementById('hud-encounter-pe').textContent = formatDistance(activeEncounterConic.encounterPeriapsisPoint.alt);
+        const timeToEntry = activeEncounterConic.soiEntryPoint ? Math.max(0, activeEncounterConic.soiEntryPoint.t - sim.time) : 0;
+        document.getElementById('hud-soi-in-time').textContent = `T- ${formatDuration(timeToEntry)}`;
+      } else {
+        encBox.classList.add('hidden');
+      }
+
+      const stats = computeRocketEngineeringStats(sim.parts);
+      document.getElementById('hud-dv').textContent = `${Math.round(stats.totalDv).toLocaleString()} m/s`;
+
+      const totalMassKg = sim.parts.reduce((s, p) => s + (p.dryMass + p.currentFuel) * 1000, 0);
+      const propGroups = getActivePropulsionGroups();
+      let activeThrustN = 0;
+      let activeEngCount = 0;
+      propGroups.forEach(g => {
+        activeEngCount += g.engines.length;
+        if (g.fuelKg > 0.01) activeThrustN += g.engines.reduce((s, e) => s + e.thrust, 0);
+      });
+
+      const localG = soiBody.mu / (rLocal * rLocal);
+      const curTWR = (totalMassKg > 0 && localG > 0) ? (activeThrustN * sim.throttle) / (totalMassKg * localG) : 0;
+      document.getElementById('hud-twr').textContent = curTWR.toFixed(2);
+
+      const sections = getIsolatedSections(sim.parts);
+      const currentBottomSection = sections.length > 0 ? sections[sections.length - 1] : [];
+      const stageTanks = currentBottomSection.filter(p => p.fuelMass > 0);
+      
+      let stageMaxFuel = 0;
+      let stageCurrentFuel = 0;
+      stageTanks.forEach(t => {
+        stageMaxFuel += t.fuelMass;
+        stageCurrentFuel += t.currentFuel;
+      });
+
+      const fuelPct = stageMaxFuel > 0 ? Math.max(0, Math.min(100, (stageCurrentFuel / stageMaxFuel) * 100)) : 0;
+      document.getElementById('hud-fuel-pct').textContent = `${fuelPct.toFixed(0)}%`;
+      document.getElementById('hud-fuel-bar').style.width = `${fuelPct}%`;
+      document.getElementById('hud-stage-num').textContent = sim.nextStage >= 0 ? sim.nextStage : 0;
+      document.getElementById('hud-next-stage-label').textContent = `STAGE ${sim.nextStage}`;
+      document.getElementById('hud-active-eng-count').textContent = `${activeEngCount} ENG ACTIVE`;
+
+      if (sim.targetBody !== 'NONE' && CELESTIAL_BODIES[sim.targetBody]) {
+        const target = CELESTIAL_BODIES[sim.targetBody];
+        const tState = getBodyState(sim.targetBody, sim.time);
+        let dvEst = 0;
+        let transferLabel = 'Direct';
+
+        if (target.parent === sim.currentSOI) {
+          transferLabel = 'Lunar Hohmann';
+          const r1 = Math.max(soiBody.radius + 60000, rLocal);
+          const r2 = target.orbitRadius;
+          const vCirc = Math.sqrt(soiBody.mu / r1);
+          dvEst = vCirc * (Math.sqrt((2 * r2) / (r1 + r2)) - 1);
+        } else {
+          transferLabel = 'Interplanetary';
+          const originPId = soiBody.parent === ROOT_BODY_ID ? sim.currentSOI : (soiBody.parent || HOME_BODY_ID);
+          const destPId = target.parent === ROOT_BODY_ID ? sim.targetBody : target.parent;
+          if (originPId && destPId && originPId !== destPId) {
+            const origP = CELESTIAL_BODIES[originPId];
+            const destP = CELESTIAL_BODIES[destPId];
+            const sun = CELESTIAL_BODIES[ROOT_BODY_ID];
+            const aTrans = (origP.orbitRadius + destP.orbitRadius) / 2;
+            const vInf = Math.abs(Math.sqrt(sun.mu * (2 / origP.orbitRadius - 1 / aTrans)) - Math.sqrt(sun.mu / origP.orbitRadius));
+            const rPark = Math.max(origP.radius + 75000, rLocal);
+            dvEst = Math.sqrt(vInf * vInf + (2 * origP.mu) / rPark) - Math.sqrt(origP.mu / rPark);
+          }
+        }
+
+        document.getElementById('nav-transfer-type').textContent = transferLabel;
+        document.getElementById('nav-target-dv').textContent = `~${Math.round(dvEst).toLocaleString()} m/s`;
+
+        let availThrust = activeThrustN;
+        if (availThrust <= 0) {
+          const allEngines = sim.parts.filter(p => p.category === 'Engine' && p.thrust > 0);
+          if (allEngines.length > 0) availThrust = allEngines[allEngines.length - 1].thrust;
+        }
+        const burnDuration = availThrust > 0 ? (dvEst * totalMassKg) / availThrust : 0;
+        document.getElementById('nav-target-burn-time').textContent = `${burnDuration.toFixed(1)} s`;
+
+        const rocketAng = Math.atan2(sim.y - bState.y, sim.x - bState.x);
+        const targetAng = Math.atan2(tState.y - bState.y, tState.x - bState.x);
+        let phaseDeg = ((targetAng - rocketAng) * 180) / Math.PI;
+        while (phaseDeg < 0) phaseDeg += 360;
+        document.getElementById('nav-phase-angle').textContent = `${phaseDeg.toFixed(1)}°`;
+      }
+
+      renderNavball(relVx, relVy, bState);
+    }
+
+    function renderNavball(relVx, relVy, bState) {
+      const canvas = document.getElementById('navball-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      const r = 44;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const upAngle = Math.atan2(sim.x - bState.x, sim.y - bState.y);
+      const pitch = sim.angle - upAngle;
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.clip();
+
+      ctx.translate(cx, cy);
+      ctx.rotate(-pitch);
+
+      ctx.fillStyle = '#0284c7';
+      ctx.fillRect(-r * 2, -r * 2, r * 4, r * 2);
+
+      ctx.fillStyle = '#92400e';
+      ctx.fillRect(-r * 2, 0, r * 4, r * 2);
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-r * 2, 0);
+      ctx.lineTo(r * 2, 0);
+      ctx.stroke();
+
+      const speed = Math.hypot(relVx, relVy);
+      if (speed > 2) {
+        const proWorldAng = Math.atan2(relVx, relVy);
+        const proRelPitch = proWorldAng - upAngle;
+        const proX = Math.sin(proRelPitch) * 26;
+        const proY = -Math.cos(proRelPitch) * 26;
+
+        ctx.strokeStyle = '#4ade80';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(proX, proY, 5, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.strokeStyle = '#f87171';
+        ctx.beginPath();
+        ctx.moveTo(-proX - 4, -proY - 4);
+        ctx.lineTo(-proX + 4, -proY + 4);
+        ctx.moveTo(-proX + 4, -proY - 4);
+        ctx.lineTo(-proX - 4, -proY + 4);
+        ctx.stroke();
+      }
+
+      if (sim.maneuverNode) {
+        const burnVec = getManeuverWorldBurnVector();
+        if (burnVec && Math.hypot(burnVec.dvx, burnVec.dvy) > 0.5) {
+          const nodeWorldAng = Math.atan2(burnVec.dvx, burnVec.dvy);
+          const nodeRelPitch = nodeWorldAng - upAngle;
+          const nx = Math.sin(nodeRelPitch) * 28;
+          const ny = -Math.cos(nodeRelPitch) * 28;
+
+          ctx.fillStyle = '#38bdf8';
+          ctx.beginPath();
+          ctx.moveTo(nx, ny - 6);
+          ctx.lineTo(nx + 6, ny);
+          ctx.lineTo(nx, ny + 6);
+          ctx.lineTo(nx - 6, ny);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      ctx.restore();
+
+      ctx.strokeStyle = '#fbbf24';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(cx - 12, cy);
+      ctx.lineTo(cx - 4, cy);
+      ctx.lineTo(cx, cy + 4);
+      ctx.lineTo(cx + 4, cy);
+      ctx.lineTo(cx + 12, cy);
+      ctx.stroke();
+
+      let hdgDeg = Math.round(((pitch * 180) / Math.PI + 360) % 360);
+      document.getElementById('navball-hdg').textContent = `PITCH: ${hdgDeg}°`;
+    }
+
+    function drawPatchedConicOverlays(conicData, conicColor, ctx, toScreen, scale, isManeuver = false) {
+      if (!conicData) return;
+
+      if (conicData.primaryApPoint && conicData.primaryApPoint.alt > 2000 && !isManeuver) {
+        const apScr = toScreen(conicData.primaryApPoint.x, conicData.primaryApPoint.y);
+        ctx.fillStyle = '#0ea5e9';
+        ctx.beginPath();
+        ctx.moveTo(apScr.x, apScr.y - 6);
+        ctx.lineTo(apScr.x + 5, apScr.y + 4);
+        ctx.lineTo(apScr.x - 5, apScr.y + 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#7dd3fc';
+        ctx.font = 'bold 9px "JetBrains Mono", monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Ap: ${formatDistance(conicData.primaryApPoint.alt)}`, apScr.x + 7, apScr.y + 3);
+      }
+
+      if (conicData.primaryPePoint && conicData.primaryPePoint.alt > 0 && !isManeuver) {
+        const peScr = toScreen(conicData.primaryPePoint.x, conicData.primaryPePoint.y);
+        ctx.fillStyle = '#6366f1';
+        ctx.beginPath();
+        ctx.moveTo(peScr.x, peScr.y + 6);
+        ctx.lineTo(peScr.x + 5, peScr.y - 4);
+        ctx.lineTo(peScr.x - 5, peScr.y - 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = '#a5b4fc';
+        ctx.font = 'bold 9px "JetBrains Mono", monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Pe: ${formatDistance(conicData.primaryPePoint.alt)}`, peScr.x + 7, peScr.y + 3);
+      }
+
+      if (conicData.soiEntryPoint) {
+        const ent = toScreen(conicData.soiEntryPoint.x, conicData.soiEntryPoint.y);
+        ctx.strokeStyle = '#34d399';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(ent.x, ent.y, 5.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#34d399';
+        ctx.font = 'bold 9px "JetBrains Mono", monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText('SOI IN', ent.x + 8, ent.y - 4);
+      }
+
+      if (conicData.soiExitPoint) {
+        const ext = toScreen(conicData.soiExitPoint.x, conicData.soiExitPoint.y);
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(ext.x, ext.y, 5.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = 'bold 9px "JetBrains Mono", monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText('SOI OUT', ext.x + 8, ext.y + 8);
+      }
+
+      if (conicData.encounterConicPoints && conicData.encounterConicPoints.length > 1 && conicData.encounterPeriapsisPoint) {
+        const encBodyId = conicData.encounterBodyId;
+        const encBody = CELESTIAL_BODIES[encBodyId];
+        const anchorState = getBodyState(encBodyId, conicData.encounterPeriapsisPoint.t);
+
+        const ghostScr = toScreen(anchorState.x, anchorState.y);
+        const radPx = Math.max(5, encBody.radius * scale);
+        ctx.strokeStyle = 'rgba(192, 132, 252, 0.55)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath();
+        ctx.arc(ghostScr.x, ghostScr.y, radPx, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = 'rgba(192, 132, 252, 0.75)';
+        ctx.font = 'bold 9px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${encBody.name.toUpperCase()} AT Pe`, ghostScr.x, ghostScr.y - radPx - 5);
+
+        ctx.strokeStyle = conicColor;
+        ctx.lineWidth = 2.4;
+        ctx.beginPath();
+        conicData.encounterConicPoints.forEach((pt, idx) => {
+          const s = toScreen(anchorState.x + pt.relX, anchorState.y + pt.relY);
+          if (idx === 0) ctx.moveTo(s.x, s.y);
+          else ctx.lineTo(s.x, s.y);
+        });
+        ctx.stroke();
+
+        const pePt = conicData.encounterPeriapsisPoint;
+        const peScr = toScreen(anchorState.x + pePt.relX, anchorState.y + pePt.relY);
+        ctx.fillStyle = conicColor;
+        ctx.beginPath();
+        ctx.arc(peScr.x, peScr.y, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#0f172a';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.fillStyle = '#f3e8ff';
+        ctx.font = 'bold 10px "JetBrains Mono", monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(`${encBody.name} Pe: ${formatDistance(pePt.alt)}`, peScr.x + 8, peScr.y + 3);
+      }
+    }
+
+    function renderCelestialBody(ctx, body, state, parentState, toScreen, scale) {
+      const scr = toScreen(state.x, state.y);
+      const radPx = body.radius * scale;
+
+      if (currentMode === 'MAP' && body.parent && parentState) {
+        const pScr = toScreen(parentState.x, parentState.y);
+        const orbitPx = body.orbitRadius * scale;
+        const isTargeted = sim.targetBody === body.id;
+
+        if (orbitPx > 8) {
+          ctx.strokeStyle = isTargeted ? 'rgba(99, 102, 241, 0.7)' : 'rgba(148, 163, 184, 0.22)';
+          ctx.lineWidth = isTargeted ? 2 : 1;
+          ctx.beginPath();
+          ctx.arc(pScr.x, pScr.y, orbitPx, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        const soiPx = body.soiRadius * scale;
+        if (soiPx > 6) {
+          ctx.strokeStyle = sim.currentSOI === body.id ? 'rgba(192, 132, 252, 0.75)' : 'rgba(129, 140, 248, 0.35)';
+          ctx.lineWidth = 1.3;
+          ctx.setLineDash([5, 5]);
+          ctx.beginPath();
+          ctx.arc(scr.x, scr.y, soiPx, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          if (soiPx > 42) {
+            ctx.fillStyle = 'rgba(165, 180, 252, 0.65)';
+            ctx.font = 'bold 9px "JetBrains Mono", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${body.name.toUpperCase()} SOI`, scr.x, scr.y - soiPx - 5);
+          }
+        }
+      }
+
+      if (radPx > 1.2) {
+        if (body.atmoHeight > 0 || body.type === 'star') {
+          const glowRadius = body.type === 'star' ? radPx * 1.45 : (body.radius + body.atmoHeight) * scale;
+          const grad = ctx.createRadialGradient(scr.x, scr.y, radPx * 0.96, scr.x, scr.y, glowRadius);
+          grad.addColorStop(0, body.atmoColor || 'rgba(56, 189, 248, 0.4)');
+          grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.arc(scr.x, scr.y, glowRadius, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.fillStyle = body.color;
+        ctx.beginPath();
+        ctx.arc(scr.x, scr.y, radPx, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (body.surfaceColor && radPx > 4) {
+          ctx.strokeStyle = body.surfaceColor;
+          ctx.lineWidth = Math.max(2, Math.min(8, radPx * 0.03));
+          ctx.beginPath();
+          ctx.arc(scr.x, scr.y, radPx - ctx.lineWidth / 2, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        if (body.type === 'moon' && radPx > 12) {
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.25)';
+          ctx.beginPath();
+          ctx.arc(scr.x - radPx * 0.3, scr.y - radPx * 0.2, radPx * 0.18, 0, Math.PI * 2);
+          ctx.arc(scr.x + radPx * 0.25, scr.y + radPx * 0.25, radPx * 0.22, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        if (body.hasLaunchpad && currentMode === 'FLIGHT' && scale > 0.3) {
+          const padScr = toScreen(state.x, state.y + body.radius);
+          ctx.fillStyle = '#64748b';
+          ctx.fillRect(padScr.x - 28 * scale, padScr.y, 56 * scale, 10 * scale);
+          ctx.fillStyle = '#ef4444';
+          ctx.fillRect(padScr.x + 18 * scale, padScr.y - 45 * scale, 5 * scale, 45 * scale);
+        }
+      } else if (currentMode === 'MAP') {
+        ctx.fillStyle = body.color;
+        ctx.beginPath();
+        ctx.arc(scr.x, scr.y, body.type === 'star' ? 7 : 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (currentMode === 'MAP') {
+        const displayRad = Math.max(body.type === 'star' ? 7 : 5, radPx);
+        ctx.fillStyle = sim.targetBody === body.id ? '#a5b4fc' : '#cbd5e1';
+        ctx.font = 'bold 11px "Inter", sans-serif';
+        ctx.textAlign = 'center';
+        const label = sim.targetBody === body.id ? `🎯 ${body.name.toUpperCase()}` : body.name.toUpperCase();
+        ctx.fillText(label, scr.x, scr.y + displayRad + 14);
+      }
+    }
+
+    function renderSimulationCanvas() {
+      const canvas = document.getElementById('sim-canvas');
+      if (!canvas || currentMode === 'VAB') return;
+
+      const rect = canvas.parentElement.getBoundingClientRect();
+      if (canvas.width !== rect.width || canvas.height !== rect.height) {
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+      }
+
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width;
+      const h = canvas.height;
+
+      const soiBody = CELESTIAL_BODIES[sim.currentSOI];
+      const soiBState = getBodyState(sim.currentSOI, sim.time);
+      const altLocal = Math.hypot(sim.x - soiBState.x, sim.y - soiBState.y) - soiBody.radius;
+
+      if (currentMode === 'FLIGHT' && soiBody.atmoHeight > 0 && altLocal < soiBody.atmoHeight) {
+        const atmoRatio = Math.max(0, 1 - altLocal / soiBody.atmoHeight);
+        let baseR = 14, baseG = 116, baseB = 180;
+        if (soiBody.id === 'MARS') { baseR = 154; baseG = 52; baseB = 18; }
+        else if (soiBody.id === 'VENUS') { baseR = 161; baseG = 98; baseB = 7; }
+
+        const rCol = Math.round(baseR * atmoRatio + 4 * (1 - atmoRatio));
+        const gCol = Math.round(baseG * atmoRatio + 7 * (1 - atmoRatio));
+        const bCol = Math.round(baseB * atmoRatio + 18 * (1 - atmoRatio));
+        ctx.fillStyle = `rgb(${rCol}, ${gCol}, ${bCol})`;
+      } else {
+        ctx.fillStyle = '#040712';
+      }
+      ctx.fillRect(0, 0, w, h);
+
+      if (currentMode === 'MAP' || soiBody.atmoHeight === 0 || altLocal > soiBody.atmoHeight * 0.25) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        for (let i = 0; i < 95; i++) {
+          const sx = ((i * 7919) % w);
+          const sy = ((i * 6271) % h);
+          const sz = (i % 3 === 0) ? 1.8 : 1.0;
+          ctx.fillRect(sx, sy, sz, sz);
+        }
+      }
+
+      let camX = sim.x;
+      let camY = sim.y;
+      let scale = sim.flightZoom;
+
+      if (currentMode === 'MAP') {
+        scale = sim.mapZoom;
+        if (sim.mapFocus !== 'ROCKET' && CELESTIAL_BODIES[sim.mapFocus]) {
+          const fState = getBodyState(sim.mapFocus, sim.time);
+          camX = fState.x;
+          camY = fState.y;
+        }
+        camX += sim.mapPanX;
+        camY += sim.mapPanY;
+      }
+
+      const toScreen = (wx, wy) => ({
+        x: w / 2 + (wx - camX) * scale,
+        y: h / 2 - (wy - camY) * scale
+      });
+
+      const bodyStatesCache = {};
+      BODY_IDS.forEach(id => { bodyStatesCache[id] = getBodyState(id, sim.time); });
+
+      BODY_IDS.forEach(id => {
+        const body = CELESTIAL_BODIES[id];
+        const parentState = body.parent ? bodyStatesCache[body.parent] : null;
+        renderCelestialBody(ctx, body, bodyStatesCache[id], parentState, toScreen, scale);
+      });
+
+      if (currentMode === 'MAP') {
+        if (sim.predictedPath.length > 1) {
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          sim.predictedPath.forEach((pt, idx) => {
+            const s = toScreen(pt.x, pt.y);
+            if (idx === 0) ctx.moveTo(s.x, s.y);
+            else ctx.lineTo(s.x, s.y);
+          });
+          ctx.stroke();
+        }
+
+        drawPatchedConicOverlays(sim.coastConic, '#c084fc', ctx, toScreen, scale, false);
+
+        if (sim.thrustPredictedPath && sim.thrustPredictedPath.length > 1) {
+          ctx.strokeStyle = '#e879f9';
+          ctx.lineWidth = 2.2;
+          ctx.setLineDash([5, 4]);
+          ctx.beginPath();
+          sim.thrustPredictedPath.forEach((pt, idx) => {
+            const s = toScreen(pt.x, pt.y);
+            if (idx === 0) ctx.moveTo(s.x, s.y);
+            else ctx.lineTo(s.x, s.y);
+          });
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        if (sim.impactPoint) {
+          const impScr = toScreen(sim.impactPoint.x, sim.impactPoint.y);
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(impScr.x - 6, impScr.y - 6);
+          ctx.lineTo(impScr.x + 6, impScr.y + 6);
+          ctx.moveTo(impScr.x + 6, impScr.y - 6);
+          ctx.lineTo(impScr.x - 6, impScr.y + 6);
+          ctx.stroke();
+
+          ctx.fillStyle = '#fca5a5';
+          ctx.font = 'bold 10px "JetBrains Mono", monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText('IMPACT', impScr.x + 9, impScr.y + 3);
+        }
+
+        if (sim.maneuverNode) {
+          const node = sim.maneuverNode;
+          if (node.postPath && node.postPath.length > 1) {
+            ctx.strokeStyle = node.encounter ? '#34d399' : '#fbbf24';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 5]);
+            ctx.beginPath();
+            node.postPath.forEach((pt, idx) => {
+              const s = toScreen(pt.x, pt.y);
+              if (idx === 0) ctx.moveTo(s.x, s.y);
+              else ctx.lineTo(s.x, s.y);
+            });
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+
+          drawPatchedConicOverlays(node, '#34d399', ctx, toScreen, scale, true);
+
+          if (node.postImpact) {
+            const pImp = toScreen(node.postImpact.x, node.postImpact.y);
+            ctx.strokeStyle = '#f97316';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(pImp.x - 5, pImp.y - 5);
+            ctx.lineTo(pImp.x + 5, pImp.y + 5);
+            ctx.moveTo(pImp.x + 5, pImp.y - 5);
+            ctx.lineTo(pImp.x - 5, pImp.y + 5);
+            ctx.stroke();
+          }
+
+          const nScr = toScreen(node.x, node.y);
+          const nodeSOI = node.soi || getCurrentSOI(node.x, node.y, node.targetTime);
+          const nodeBState = getBodyState(nodeSOI, node.targetTime);
+          const relVx = node.vx - nodeBState.vx;
+          const relVy = node.vy - nodeBState.vy;
+          const speed = Math.hypot(relVx, relVy) || 1;
+          const proScrX = relVx / speed;
+          const proScrY = -relVy / speed;
+          const radScrX = -proScrY;
+          const radScrY = proScrX;
+
+          const handleDist = 30;
+          const handles = [
+            { type: 'PROGRADE', x: nScr.x + proScrX * handleDist, y: nScr.y + proScrY * handleDist, color: '#4ade80' },
+            { type: 'RETROGRADE', x: nScr.x - proScrX * handleDist, y: nScr.y - proScrY * handleDist, color: '#f87171' },
+            { type: 'RADIAL_OUT', x: nScr.x + radScrX * handleDist, y: nScr.y + radScrY * handleDist, color: '#38bdf8' },
+            { type: 'RADIAL_IN', x: nScr.x - radScrX * handleDist, y: nScr.y - radScrY * handleDist, color: '#818cf8' }
+          ];
+
+          node._screenHandles = handles;
+
+          handles.forEach(hdl => {
+            ctx.strokeStyle = hdl.color;
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(nScr.x, nScr.y);
+            ctx.lineTo(hdl.x, hdl.y);
+            ctx.stroke();
+
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.arc(hdl.x, hdl.y, 7, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+          });
+
+          ctx.fillStyle = '#38bdf8';
+          ctx.beginPath();
+          ctx.arc(nScr.x, nScr.y, 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      if (currentMode === 'FLIGHT') {
+        sim.debris.forEach(d => {
+          const ds = toScreen(d.x, d.y);
+          ctx.save();
+          ctx.translate(ds.x, ds.y);
+          ctx.rotate(d.angle);
+          const partScale = scale * 0.35;
+          let curY = -(d.parts.reduce((s, p) => s + p.height, 0) * partScale) / 2;
+          d.parts.forEach(p => {
+            drawRocketPartGraphic(ctx, p, 0, curY + (p.height * partScale) / 2, p.width * partScale, p.height * partScale, false);
+            curY += p.height * partScale;
+          });
+          ctx.restore();
+        });
+      }
+
+      const rScr = toScreen(sim.x, sim.y);
+      if (currentMode === 'MAP') {
+        ctx.save();
+        ctx.translate(rScr.x, rScr.y);
+        ctx.rotate(sim.angle);
+        ctx.fillStyle = '#f8fafc';
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, -8);
+        ctx.lineTo(5, 6);
+        ctx.lineTo(0, 3);
+        ctx.lineTo(-5, 6);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.save();
+        ctx.translate(rScr.x, rScr.y);
+        ctx.rotate(sim.angle);
+
+        const partScale = Math.max(0.25, scale * 0.35);
+        const totalH = sim.parts.reduce((s, p) => s + p.height, 0) * partScale;
+        let curY = -totalH / 2;
+
+        const sections = getIsolatedSections(sim.parts);
+        const sectionHasFuelMap = new Map();
+        sections.forEach(sec => {
+          const hasFuel = sec.some(t => t.fuelMass > 0 && t.currentFuel > 0.0001);
+          sec.forEach(partInSec => sectionHasFuelMap.set(partInSec.uid, hasFuel));
+        });
+
+        sim.parts.forEach(p => {
+          const pw = p.width * partScale;
+          const ph = p.height * partScale;
+          const hasFuelInSection = sectionHasFuelMap.get(p.uid) === true;
+          const isFiring = (sim.throttle > 0 && p.category === 'Engine' && p.activated === true && hasFuelInSection);
+          drawRocketPartGraphic(ctx, p, 0, curY + ph / 2, pw, ph, isFiring);
+          curY += ph;
+        });
+
+        ctx.restore();
+      }
+    }
+
+    // =========================================================================
+    // 11. MOUSE & KEYBOARD INTERACTION HANDLERS
+    // =========================================================================
+    window.addEventListener('keydown', e => {
+      keys[e.code] = true;
+
+      if (missionState.isPausedByModal) {
+        if (e.code === 'Enter' || e.code === 'Escape') {
+          e.preventDefault();
+          dismissCheckpointModal();
+        }
+        return;
+      }
+
+      if (e.code === 'KeyM') toggleMapMode();
+      if (currentMode === 'VAB') return;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        activateNextStage();
+      } else if (e.code === 'KeyZ') {
+        setThrottle(1);
+      } else if (e.code === 'KeyX') {
+        setThrottle(0);
+      } else if (e.code === 'KeyP') {
+        deployParachutes();
+      }
+    });
+
+    window.addEventListener('keyup', e => {
+      keys[e.code] = false;
+    });
+
+    const simCanvas = document.getElementById('sim-canvas');
+    simCanvas.addEventListener('wheel', e => {
+      e.preventDefault();
+      zoomMap(e.deltaY < 0 ? 1.18 : 0.85);
+    }, { passive: false });
+
+    simCanvas.addEventListener('mousedown', e => {
+      if (missionState.isPausedByModal) return;
+      const rect = simCanvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      if (currentMode === 'MAP') {
+        if (sim.maneuverNode && sim.maneuverNode._screenHandles) {
+          for (const hdl of sim.maneuverNode._screenHandles) {
+            if (Math.hypot(mx - hdl.x, my - hdl.y) <= 12) {
+              draggingNodeHandle = hdl.type;
+              return;
+            }
+          }
+        }
+
+        const w = simCanvas.width;
+        const h = simCanvas.height;
+        let camX = sim.x;
+        let camY = sim.y;
+        if (sim.mapFocus !== 'ROCKET' && CELESTIAL_BODIES[sim.mapFocus]) {
+          const fState = getBodyState(sim.mapFocus, sim.time);
+          camX = fState.x;
+          camY = fState.y;
+        }
+        camX += sim.mapPanX;
+        camY += sim.mapPanY;
+
+        for (let i = 0; i < BODIES_BY_DEPTH_DESC.length; i++) {
+          const id = BODIES_BY_DEPTH_DESC[i];
+          const b = CELESTIAL_BODIES[id];
+          const bState = getBodyState(id, sim.time);
+          const bScrX = w / 2 + (bState.x - camX) * sim.mapZoom;
+          const bScrY = h / 2 - (bState.y - camY) * sim.mapZoom;
+          if (Math.hypot(mx - bScrX, my - bScrY) <= Math.max(14, b.radius * sim.mapZoom)) {
+            document.getElementById('target-select').value = id;
+            selectTarget(id);
+            return;
+          }
+        }
+
+        if (sim.predictedPath.length > 5) {
+          let closestPt = null;
+          let minDist = 14;
+          for (let i = 2; i < sim.predictedPath.length; i++) {
+            const pt = sim.predictedPath[i];
+            const sx = w / 2 + (pt.x - camX) * sim.mapZoom;
+            const sy = h / 2 - (pt.y - camY) * sim.mapZoom;
+            const d = Math.hypot(mx - sx, my - sy);
+            if (d < minDist) {
+              minDist = d;
+              closestPt = pt;
+            }
+          }
+
+          if (closestPt) {
+            placeManeuverNodeAtPoint(closestPt, 0, 0);
+            showToast('Maneuver Node placed! Drag handles or use sliders to plan burn.', 'success');
+            return;
+          }
+        }
+
+        isDraggingMap = true;
+        dragStartX = mx;
+        dragStartY = my;
+      }
+    });
+
+    window.addEventListener('mousemove', e => {
+      if (draggingNodeHandle && sim.maneuverNode) {
+        const delta = (e.movementX - e.movementY) * 4.5;
+        if (draggingNodeHandle === 'PROGRADE') {
+          sim.maneuverNode.progradeDv = Math.max(-4500, Math.min(4500, sim.maneuverNode.progradeDv + delta));
+        } else if (draggingNodeHandle === 'RETROGRADE') {
+          sim.maneuverNode.progradeDv = Math.max(-4500, Math.min(4500, sim.maneuverNode.progradeDv - delta));
+        } else if (draggingNodeHandle === 'RADIAL_OUT') {
+          sim.maneuverNode.radialDv = Math.max(-2000, Math.min(2000, sim.maneuverNode.radialDv + delta));
+        } else if (draggingNodeHandle === 'RADIAL_IN') {
+          sim.maneuverNode.radialDv = Math.max(-2000, Math.min(2000, sim.maneuverNode.radialDv - delta));
+        }
+        document.getElementById('slider-prograde').value = Math.round(sim.maneuverNode.progradeDv);
+        document.getElementById('slider-radial').value = Math.round(sim.maneuverNode.radialDv);
+        updateNodeFromSliders();
+        return;
+      }
+
+      if (isDraggingMap && currentMode === 'MAP') {
+        const rect = simCanvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const dx = mx - dragStartX;
+        const dy = my - dragStartY;
+        sim.mapPanX -= dx / sim.mapZoom;
+        sim.mapPanY += dy / sim.mapZoom;
+        dragStartX = mx;
+        dragStartY = my;
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDraggingMap = false;
+      draggingNodeHandle = null;
+    });
+
+    // =========================================================================
+    // 12. MAIN ANIMATION LOOP
+    // =========================================================================
+    let lastFrameTime = performance.now();
+    let trajectoryTimer = 0;
+
+    function mainLoop(now) {
+      const dt = Math.min(0.05, (now - lastFrameTime) / 1000);
+      lastFrameTime = now;
+
+      if (sim.running) {
+        if (!missionState.isPausedByModal) {
+          if (keys['ShiftLeft'] || keys['ShiftRight']) setThrottle(sim.throttle + dt * 0.55);
+          if (keys['ControlLeft'] || keys['ControlRight']) setThrottle(sim.throttle - dt * 0.55);
+
+          stepPhysics(dt);
+
+          trajectoryTimer += dt;
+          if (currentMode === 'MAP' || sim.throttle > 0 || trajectoryTimer >= 0.08) {
+            trajectoryTimer = 0;
+            computeTrajectoryPrediction();
+          }
+        }
+
+        updateFlightHUD();
+        renderSimulationCanvas();
+      }
+
+      requestAnimationFrame(mainLoop);
+    }
+
+    window.addEventListener('resize', () => {
+      if (currentMode === 'VAB') renderVABCanvas();
+    });
+
+    window.onload = () => {
+      populateDynamicCelestialUI();
+      initVAB();
+      requestAnimationFrame(mainLoop);
+    };
+  </script>
+</body>
+</html>

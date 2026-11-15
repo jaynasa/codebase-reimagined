@@ -28,3 +28,9 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+## Project rules
+
+- The rocket simulator lives verbatim in `public/game/index.html` and is embedded by the `/play` route in an iframe. Why: it is ~3,500 lines of imperative canvas code with global handlers; porting it to React risks breaking gameplay.
+- `public/game/game.css` is a precompiled Tailwind v3 build of the classes used in `public/game/index.html` (replaces the Tailwind CDN). Why: no runtime CDN dependency. Regenerate it with the Tailwind v3 CLI scanning that file whenever the game's markup classes change.
+- Website pages (`/`, `/guide`) wrap content in `SiteShell` (header, footer, back-to-top, placeholder notice). External GitHub/video URLs are configured only in `src/lib/project-links.ts`; an empty value shows the placeholder notice. Why: one place to swap in real links.
